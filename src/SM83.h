@@ -162,7 +162,7 @@ namespace emulator
             &SM83::SRL
         };
 
-        uint8_t& R(int i)
+        uint8_t& r(int i)
         {
             switch (i)
             {

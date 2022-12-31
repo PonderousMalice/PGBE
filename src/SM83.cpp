@@ -35,24 +35,24 @@ namespace emulator
             case 0:
                 // Roll/shift register or memory location
                 // rot[y] r[z]
-                _rot[y](*this, R(z));
+                _rot.at(y)(*this, r(z));
                 break;
             case 1:
                 // Test bit : set the zero flag if bit is *not* set.
                 // BIT y, r[z]
-                _registers.flags.z = !isSetBit(R(z), y);
+                _registers.flags.z = !isSetBit(r(z), y);
                 _registers.flags.n = false;
                 _registers.flags.h = true;
                 break;
             case 2:
                 // Reset bit
                 // RES y, r[z]
-                clearBit(R(z), y);
+                clearBit(r(z), y);
                 break;
             case 3:
                 // Set bit
                 // SET y, r[z]
-                setBit(R(z), y);
+                setBit(r(z), y);
                 break;
             }
 
@@ -104,16 +104,16 @@ namespace emulator
                 {
                     // LD rp[p], nn
                     nn = read_word();
-                    *(_rp[p]) = nn;
+                    *(_rp.at(p)) = nn;
                 }
                 else
                 {
                     // ADD HL, rp[p]
-                    nn = _registers.HL + *(_rp[p]);
-                    _registers.flags.c = nn > 0xFF;
-                    set_half_carry_flag_add8(_registers.HL, *(_rp[p]));
+                    nnnn = _registers.HL + *(_rp.at(p));
+                    _registers.flags.c = nnnn > 0xFF;
+                    set_half_carry_flag_add8(_registers.HL, *(_rp.at(p)));
                     _registers.flags.n = false;
-                    _registers.HL = nn;
+                    _registers.HL = (uint16_t)nnnn;
                 }
                 break;
             case 2:
@@ -169,38 +169,38 @@ namespace emulator
                 {
                     // INC rp[p]
                     // TO FIX
-                    ++(*(_rp[p]));
+                    ++(*(_rp.at(p)));
                 }
                 else
                 {
                     // DEC rp[p]
                     // TO FIX
-                    --(*(_rp[p]));
+                    --(*(_rp.at(p)));
                 }
                 break;
             case 4:
                 // 8-bit INC
                 // INC r[y]
-                n = R(y) + 1;
+                n = r(y) + 1;
                 _registers.flags.z = n == 0;
                 _registers.flags.n = false;
-                set_half_carry_flag_add8(R(y), 1);
-                R(y) = n;
+                set_half_carry_flag_add8(r(y), 1);
+                r(y) = n;
                 break;
             case 5:
                 // 8-bit DEC
                 // DEC r[y]
-                n = R(y);
-                --(R(y));
-                _registers.flags.z = R(y) == 0;
-                set_half_carry_flag_sub(n, R(y));
+                n = r(y);
+                --(r(y));
+                _registers.flags.z = r(y) == 0;
+                set_half_carry_flag_sub(n, r(y));
                 _registers.flags.n = true;
                 break;
             case 6:
                 // 8-bit load immediate
                 // LD r[y], n
                 n = read_byte();
-                R(y) = n;
+                r(y) = n;
                 break;
             case 7:
                 // Assorted operations on accumulator/flags
@@ -281,13 +281,13 @@ namespace emulator
             {
                 // 8-bit loading
                 // LD r[y], r[z]
-                R(y) = R(z);
+                r(y) = r(z);
             }
             break;
         case 2:
             // Operate on accumulator and register/memory location
             // alu[y] r[z]
-            ALU(y, R(z));
+            ALU(y, r(z));
             break;
         case 3:
             switch (z)
@@ -348,7 +348,7 @@ namespace emulator
                 {
                     // POP rp2[p]
                     nn = read(_registers.SP++);
-                    *(_rp2[p]) = combine(nn, read(_registers.SP++));
+                    *(_rp2.at(p)) = combine(nn, read(_registers.SP++));
                 }
                 else
                 {
@@ -441,7 +441,7 @@ namespace emulator
                 if (q == 0)
                 {
                     // PUSH rp2[p]
-                    nn = *(_rp2[p]);
+                    nn = *(_rp2.at(p));
                     _registers.SP -= 2;
                     write(_registers.SP, nn);
                 }
@@ -764,11 +764,11 @@ namespace emulator
 
     void SM83::ALU(uint8_t y, uint8_t val)
     {
-        _alu[y](*this, val);
+        _alu.at(y)(*this, val);
     }
 
     bool SM83::CC(uint8_t y)
     {
-        return _cc[y - 4](*this);
+        return _cc.at(y)(*this);
     }
 }
