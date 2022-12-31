@@ -91,7 +91,7 @@ namespace emulator
                 case 7:
                     // JR cc[y - 4], d
                     d = read_byte();
-                    if (CC(y))
+                    if (CC(y - 4))
                     {
                         JUMP(_registers.PC + d);
                     }
@@ -546,7 +546,7 @@ namespace emulator
     {
         uint16_t tmp = _registers.A + v;
 
-        _registers.flags.z = tmp == 0;
+        _registers.flags.z = (tmp & (0x00FF)) == 0;
         _registers.flags.n = false;
         set_half_carry_flag_add8(_registers.A, v);
         _registers.flags.c = tmp >= 0x100;
@@ -558,7 +558,7 @@ namespace emulator
     {
         uint16_t tmp = _registers.A + v + _registers.flags.c;
 
-        _registers.flags.z = tmp == 0;
+        _registers.flags.z = (tmp & (0x00FF)) == 0;
         _registers.flags.n = false;
         set_half_carry_flag_add8(_registers.A, v + _registers.flags.c);
         _registers.flags.c = tmp >= 0x100;
@@ -570,9 +570,8 @@ namespace emulator
     {
         int16_t tmp = _registers.A - v;
 
-        _registers.flags.z = tmp == 0;
+        _registers.flags.z = (tmp & (0x00FF)) == 0;
         _registers.flags.n = true;
-        // _registers.flags.h = false;
         set_half_carry_flag_sub(_registers.A, tmp);
         _registers.flags.c = tmp < 0;
 
@@ -583,7 +582,7 @@ namespace emulator
     {
         int16_t tmp = _registers.A - v - _registers.flags.c;
 
-        _registers.flags.z = tmp == 0;
+        _registers.flags.z = (tmp & (0x00FF)) == 0;
         _registers.flags.n = true;
         set_half_carry_flag_sub(_registers.A, tmp);
         _registers.flags.c = tmp < 0;
@@ -625,7 +624,7 @@ namespace emulator
     {
         int16_t tmp = _registers.A - v;
 
-        _registers.flags.z = tmp == 0;
+        _registers.flags.z = (tmp & (0x00FF)) == 0;
         _registers.flags.n = true;
         set_half_carry_flag_sub(_registers.A, tmp);
         _registers.flags.c = tmp < 0;
