@@ -6,8 +6,11 @@ static constexpr auto framerate = 60;
 
 static constexpr auto viewport_width = 160;
 static constexpr auto viewport_height = 144;
-
 static constexpr auto buffer_size = viewport_height * viewport_width;
+
+static constexpr auto window_width = viewport_width * 5;
+static constexpr auto window_height = viewport_height * 5;
+static constexpr auto framerate = 60;
 
 static constexpr auto dot = 1.0 / (4.0 * (1 << 20)); // 4 MiHz or 1 T-Cycle
 static constexpr auto nb_scanlines = 154;

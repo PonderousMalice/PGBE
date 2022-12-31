@@ -59,7 +59,7 @@ namespace emulator
             exit(1);
         }
 
-        if (SDL_CreateWindowAndRenderer(window_height, window_width, SDL_WINDOW_RESIZABLE, &_window, &_renderer) < 0)
+        if (SDL_CreateWindowAndRenderer(window_width, window_height, SDL_WINDOW_RESIZABLE, &_window, &_renderer) < 0)
         {
             fmt::print("SDL could not create window and/or renderer! SDL_Error: {}", SDL_GetError());
             exit(1);
