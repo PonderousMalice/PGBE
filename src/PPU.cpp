@@ -6,11 +6,7 @@ namespace emulator
     {
         if (!lcd_enabled())
         {
-            if (read(LY) != 0x90)
-            {
                 reset();
-                write(LY, 0x90);
-            }
             return;
         }
 

@@ -6,11 +6,6 @@ namespace emulator
 {
     int SM83::tick()
     {
-        if (_registers.PC > 0xFF)
-        {
-            exit(0);
-        }
-
         _cycle_count = 0;
         auto opcode = read_byte();
 
