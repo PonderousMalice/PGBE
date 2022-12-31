@@ -64,12 +64,12 @@ namespace emulator
     public:
         MMU()
         {
-            boot_rom = std::make_unique <std::array<uint8_t, 256>>();;
-            _rom_bank_00 = nullptr;
-            _rom_bank_01 = nullptr;
+            boot_rom = std::make_unique<std::array<uint8_t, 256>>();
+            rom_bank_00 = std::make_unique <std::array<uint8_t, 0x4000>>();
+            rom_bank_01 = std::make_unique <std::array<uint8_t, 0x4000>>();
             _vram = std::make_unique <std::array<uint8_t, 0x2000>>();
             _vram->fill(0);
-            _external_ram = nullptr;
+            _external_ram = std::make_unique <std::array<uint8_t, 0x2000>>();
             _wram = std::make_unique <std::array<uint8_t, 0x2000>>();
             _wram->fill(0);
             OAM = std::make_unique <std::array<uint8_t, 0x00A0>>();
@@ -88,9 +88,9 @@ namespace emulator
 
         std::unique_ptr<std::array<uint8_t, 0x0100>> boot_rom;
         std::unique_ptr<std::array<uint8_t, 0x00A0>> OAM;
+        std::unique_ptr<std::array<uint8_t, 0x4000>> rom_bank_00;
+        std::unique_ptr<std::array<uint8_t, 0x4000>> rom_bank_01;
     private:
-        std::unique_ptr<std::array<uint8_t, 0x4000>> _rom_bank_00;
-        std::unique_ptr<std::array<uint8_t, 0x4000>> _rom_bank_01;
         std::unique_ptr<std::array<uint8_t, 0x2000>> _vram;
         std::unique_ptr<std::array<uint8_t, 0x2000>> _external_ram;
         std::unique_ptr<std::array<uint8_t, 0x2000>> _wram;

@@ -19,7 +19,7 @@ namespace emulator
 
     uint8_t& MMU::get_host_adr(uint16_t gb_adr)
     {
-        if (gb_adr <= 0x0100 && boot_rom)
+        if (gb_adr < 0x0100 && boot_rom)
         {
             return boot_rom->at(gb_adr);
         }
@@ -27,13 +27,13 @@ namespace emulator
         {
             return _logo.at(gb_adr - 0x104);
         }
-        else if (gb_adr > 0x0100 && gb_adr <= 0x3FFF && _rom_bank_00)
+        else if (gb_adr >= 0x0100 && gb_adr <= 0x3FFF && rom_bank_00)
         {
-            return _rom_bank_00->at(gb_adr);
+            return rom_bank_00->at(gb_adr);
         }
-        else if (gb_adr > 0x3FFF && gb_adr <= 0x7FFF && _rom_bank_01)
+        else if (gb_adr > 0x3FFF && gb_adr <= 0x7FFF && rom_bank_01)
         {
-            return _rom_bank_01->at(gb_adr - 0x4000);
+            return rom_bank_01->at(gb_adr - 0x4000);
         }
         else if (gb_adr > 0x7FFF && gb_adr <= 0x9FFF)
         {
