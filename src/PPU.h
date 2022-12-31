@@ -68,7 +68,7 @@ namespace emulator
 
     struct color
     {
-        uint8_t R;
+        uint8_t r;
         uint8_t g;
         uint8_t b;
     };
@@ -92,31 +92,31 @@ namespace emulator
         bool frame_completed();
     private:
         MMU* _mmu;
-        std::array<color, buffer_size> _framebuffer;
+        std::array<uint8_t, buffer_size> _framebuffer;
         std::vector<sprite_attributes> _sprite_buffer;
         std::array<color, 4> bg_palette
         {
             color
             {
-                .R = 224,
+                .r = 224,
                 .g = 248,
                 .b = 208
             },
             color
             {
-                .R = 136,
+                .r = 136,
                 .g = 192,
                 .b = 112
             },
             color
             {
-                .R = 52,
+                .r = 52,
                 .g = 104,
                 .b = 86
             },
             color
             {
-                .R = 8,
+                .r = 8,
                 .g = 24,
                 .b = 32
             },

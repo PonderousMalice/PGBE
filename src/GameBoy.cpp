@@ -96,7 +96,7 @@ namespace emulator
             for (int x = 0; x < viewport_width; ++x)
             {
                 auto color = _ppu.get_color(x, y);
-                SDL_SetRenderDrawColor(_renderer, color.R, color.g, color.b, 255);
+                SDL_SetRenderDrawColor(_renderer, color.r, color.g, color.b, 255);
                 SDL_RenderDrawPoint(_renderer, x, y);
             }
         }

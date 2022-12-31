@@ -89,8 +89,8 @@ namespace emulator
 
             for (; i >= 0; --i)
             {
-                uint8_t bit_low = (tile_data[0] & (1 << i)) >> i;
-                uint8_t bit_high = (tile_data[1] & (1 << i)) >> i;
+                uint8_t bit_low = (tile_data.at(0) & (1 << i)) >> i;
+                uint8_t bit_high = (tile_data.at(1) & (1 << i)) >> i;
                 bit_high <<= 1;
 
                 fifo_entry p
@@ -99,7 +99,7 @@ namespace emulator
                     .palette = 0, // for sprites only
                     .color = (uint8_t)(bit_low + bit_high)
                 };
-                _framebuffer.at(x_pos++ + rLY * viewport_width) = bg_palette.at(p.color);
+                _framebuffer.at(x_pos++ + rLY * viewport_width) = p.color;
             }
         }
 
@@ -167,7 +167,7 @@ namespace emulator
 
     color PPU::get_color(int x, int y)
     {
-        return _framebuffer.at(x + y * viewport_width);
+        return bg_palette.at(_framebuffer.at(x + y * viewport_width));
     }
 
     void PPU::reset()
@@ -176,7 +176,7 @@ namespace emulator
         write(LY, 0);
         // _cur_cycle_in_scanline = 0;
         _window_line_counter = 0;
-        _framebuffer.fill({ 0, 0, 0 });
+        _framebuffer.fill(0);
         _frame_completed = false;
     }
 
@@ -228,8 +228,8 @@ namespace emulator
             tile_data_adr = 0x8800 + (int8_t)(tile_id * 16);
         }
 
-        res[0] = read(tile_data_adr + offset);
-        res[1] = read(tile_data_adr + offset + 1);
+        res.at(0) = read(tile_data_adr + offset);
+        res.at(1) = read(tile_data_adr + offset + 1);
 
         return res;
     }

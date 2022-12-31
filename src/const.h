@@ -1,9 +1,5 @@
 #pragma once
 
-static constexpr auto window_width = 600;
-static constexpr auto window_height = 800;
-static constexpr auto framerate = 60;
-
 static constexpr auto viewport_width = 160;
 static constexpr auto viewport_height = 144;
 static constexpr auto buffer_size = viewport_height * viewport_width;
