@@ -2,6 +2,8 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <vector>
+#include <string>
 
 namespace emulator
 {
@@ -55,8 +57,14 @@ namespace emulator
         WX = 0xFF4B, // Window X position +7
         BGP = 0xFF47, // BG palette data
 
+        // MISC
         TILE_MAP1 = 0x9800, //default
         TILE_MAP2 = 0x9C00,
+
+        BANK = 0xFF50,
+        CARTRIDGE_TYPE = 0x147,
+        ROM_SIZE = 0x148,
+        RAM_SIZE = 0x149,
     };
 
     class MMU
@@ -64,9 +72,11 @@ namespace emulator
     public:
         MMU()
         {
-            boot_rom = std::make_unique<std::array<uint8_t, 256>>();
-            rom_bank_00 = std::make_unique <std::array<uint8_t, 0x4000>>();
-            rom_bank_01 = std::make_unique <std::array<uint8_t, 0x4000>>();
+            _boot_rom = std::make_unique<std::array<uint8_t, 256>>();
+            _rom_bank_00 = std::make_unique <std::array<uint8_t, 0x4000>>();
+            _rom_bank_00->fill(0xFF);
+            _rom_bank_01 = std::make_unique <std::array<uint8_t, 0x4000>>();
+            _rom_bank_00->fill(0xFF);
             _vram = std::make_unique <std::array<uint8_t, 0x2000>>();
             _vram->fill(0);
             _external_ram = std::make_unique <std::array<uint8_t, 0x2000>>();
@@ -86,11 +96,19 @@ namespace emulator
         void write(uint16_t adr, uint8_t v);
         uint8_t& get_host_adr(uint16_t gb_adr);
 
-        std::unique_ptr<std::array<uint8_t, 0x0100>> boot_rom;
+        void load_boot_rom(std::string path);
+        void load_game_rom(std::string path);
+
+        bool boot_rom_enabled()
+        {
+            return read(BANK) == 0;
+        };
+
         std::unique_ptr<std::array<uint8_t, 0x00A0>> OAM;
-        std::unique_ptr<std::array<uint8_t, 0x4000>> rom_bank_00;
-        std::unique_ptr<std::array<uint8_t, 0x4000>> rom_bank_01;
     private:
+        std::unique_ptr<std::array<uint8_t, 0x0100>> _boot_rom;
+        std::unique_ptr<std::array<uint8_t, 0x4000>> _rom_bank_00;
+        std::unique_ptr<std::array<uint8_t, 0x4000>> _rom_bank_01;
         std::unique_ptr<std::array<uint8_t, 0x2000>> _vram;
         std::unique_ptr<std::array<uint8_t, 0x2000>> _external_ram;
         std::unique_ptr<std::array<uint8_t, 0x2000>> _wram;
@@ -99,11 +117,6 @@ namespace emulator
         uint8_t _ie_reg;
         uint8_t _null;
 
-        std::array<uint8_t, 48> _logo
-        {
-            0xCE,0xED,0x66,0x66,0xCC,0x0D,0x00,0x0B,0x03,0x73,0x00,0x83,0x00,0x0C,0x00,0x0D,
-            0x00,0x08,0x11,0x1F,0x88,0x89,0x00,0x0E,0xDC,0xCC,0x6E,0xE6,0xDD,0xDD,0xD9,0x99,
-            0xBB,0xBB,0x67,0x63,0x6E,0x0E,0xEC,0xCC,0xDD,0xDC,0x99,0x9F,0xBB,0xB9,0x33,0x3E
-        };
+        std::vector<uint8_t> _rom_gb;
     };
 }

@@ -49,10 +49,6 @@ namespace emulator
         void on_render();
 
         void init_sdl();
-        void load_boot_rom();
-
-        inline static const std::string boot_rom_path = "DMG_ROM.bin";
-        static constexpr auto log_file_path = "gb.log";
 
         SDL_Window* _window;
         SDL_Renderer* _renderer;

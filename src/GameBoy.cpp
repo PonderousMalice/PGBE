@@ -41,14 +41,9 @@ namespace emulator
     void GameBoy::on_init()
     {
         init_sdl();
-        load_boot_rom();
+        _mmu.load_boot_rom(boot_rom_path);
+        _mmu.load_game_rom(gb_rom_path);
         _running = true;
-    }
-
-    void GameBoy::load_boot_rom()
-    {
-        std::ifstream input(boot_rom_path, std::ios::binary);
-        input.read(reinterpret_cast<char*>(_mmu.boot_rom.get()), _mmu.boot_rom->size());
     }
 
     void GameBoy::init_sdl()

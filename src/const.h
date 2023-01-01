@@ -16,3 +16,8 @@ static constexpr auto frame_duration = scanline_duration * nb_scanlines; // T-Cy
 static constexpr auto frame_duration_ms = dot * frame_duration * 1000; // milliseconds
 
 static constexpr auto oam_size = 40;
+
+static constexpr auto boot_rom_path = "DMG_ROM.bin";
+static constexpr auto log_file_path = "gb.log";
+//static constexpr auto rom_file = "cpu_instrs.gb";
+static constexpr auto gb_rom_path = "tetris.gb";

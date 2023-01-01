@@ -1,4 +1,6 @@
 #include "MMU.h"
+#include <fstream>
+#include <fmt/core.h>
 
 namespace emulator
 {
@@ -9,6 +11,8 @@ namespace emulator
 
     void MMU::write(uint16_t adr, uint8_t v)
     {
+        if (adr > 0x7FFF)
+        {
         uint8_t& p = get_host_adr(adr);
 
         if (&p != &_null)
@@ -17,23 +21,26 @@ namespace emulator
         }
     }
 
+        if (adr == 0xFF01)
+        {
+            fmt::print("{:c}", v);
+        }
+    }
+
     uint8_t& MMU::get_host_adr(uint16_t gb_adr)
     {
-        if (gb_adr < 0x0100 && boot_rom)
+        if (gb_adr <= 0x3FFF)
         {
-            return boot_rom->at(gb_adr);
+            if (gb_adr < 0x0100 && boot_rom_enabled())
+        {
+                return _boot_rom->at(gb_adr);
         }
-        else if (gb_adr >= 0x0104 && gb_adr <= 0x133)
-        {
-            return _logo.at(gb_adr - 0x104);
+
+            return _rom_bank_00->at(gb_adr);
         }
-        else if (gb_adr >= 0x0100 && gb_adr <= 0x3FFF && rom_bank_00)
+        else if (gb_adr > 0x3FFF && gb_adr <= 0x7FFF)
         {
-            return rom_bank_00->at(gb_adr);
-        }
-        else if (gb_adr > 0x3FFF && gb_adr <= 0x7FFF && rom_bank_01)
-        {
-            return rom_bank_01->at(gb_adr - 0x4000);
+            return _rom_bank_01->at(gb_adr - 0x4000);
         }
         else if (gb_adr > 0x7FFF && gb_adr <= 0x9FFF)
         {
@@ -69,6 +76,28 @@ namespace emulator
         }
 
         return _null;
+    }
+
+    void MMU::load_boot_rom(std::string path)
+    {
+        std::ifstream input(path, std::ios::binary);
+
+        if (!input)
+        {
+            fmt::print("Missing boot rom file...");
+            exit(1);
+        }
+
+        input.read(reinterpret_cast<char*>(_boot_rom.get()), _boot_rom->size());
+    }
+
+    void MMU::load_game_rom(std::string path)
+    {
+        std::ifstream input(path, std::ios::binary);
+       // _rom_gb = std::vector<uint8_t>((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+
+        input.read(reinterpret_cast<char*>(_rom_bank_00.get()), _rom_bank_00->size());
+        input.read(reinterpret_cast<char*>(_rom_bank_01.get()), _rom_bank_01->size());
     }
 }
 
