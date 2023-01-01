@@ -188,7 +188,7 @@ namespace emulator
             tile_map_adr = 0x9C00;
         }
 
-        uint16_t offset_y, offset_x = ((x_pos + read(SCX)) / 8) & 0x1F;
+        uint16_t offset_y, offset_x = ((x_pos / 8) + (read(SCX) / 8)) & 0x1F;
 
         if (window_enabled())
         {
@@ -233,7 +233,6 @@ namespace emulator
 
         return res;
     }
-
 
     bool PPU::lcd_enabled()
     {

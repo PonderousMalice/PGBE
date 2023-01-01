@@ -80,7 +80,6 @@ namespace emulator
         {
             _mmu = memory;
             _frame_completed = false;
-            //reset();
             switch_mode(OAM_SCAN);
             _drawing_cycle_nb = 172;
             _cur_cycle_in_scanline = 0;
@@ -90,6 +89,7 @@ namespace emulator
         void reset();
         color get_color(int x, int y);
         bool frame_completed();
+       
     private:
         MMU* _mmu;
         std::array<uint8_t, buffer_size> _framebuffer;
@@ -135,8 +135,6 @@ namespace emulator
             V_BLANK = 1, // Mode 1
         } _state;
 
-        bool lcd_enabled();
-
         void draw_line();
         void scan_oam();
         void switch_mode(state new_state);
@@ -168,6 +166,8 @@ namespace emulator
         {
             return get_lcdc_reg().flags.bg_tile_map_area;
         }
+
+        bool lcd_enabled();
     };
 }
 
