@@ -17,6 +17,7 @@ namespace emulator
 
         int tick();
         void dump(std::FILE* f);
+        void print_dis(std::FILE* f);
     private:
         MMU* _mmu;
         struct registers
@@ -83,6 +84,15 @@ namespace emulator
         int _cycle_count;
         bool _ime;
 
+        struct
+        {
+            std::string name;
+            std::string arg1;
+            std::string arg2;
+        } _cur_instr;
+
+        inline const static bool _debug = true;
+
         // RAM access
         uint8_t read(uint16_t adr);
         uint8_t read_byte();
@@ -94,6 +104,8 @@ namespace emulator
         bool CC(uint8_t y);
         // Interrupt handler
         //void ISR();
+
+        
 
         void set_half_carry_flag_sub(uint8_t old_value, uint8_t new_value);
         void set_half_carry_flag_add8(uint8_t val1, uint8_t val2);
@@ -162,6 +174,7 @@ namespace emulator
             &SM83::SRL
         };
 
+
         uint8_t& r(int i)
         {
             switch (i)
@@ -201,6 +214,35 @@ namespace emulator
             &_registers.HL,
             &_registers.AF
         };
+
+        
+        
+        std::string r_str(int i)
+        {
+            switch (i)
+            {
+            case 0:
+                return "B";
+            case 1:
+                return "C";
+            case 2:
+                return "D";
+            case 3:
+                return "E";
+            case 4:
+                return "H";
+            case 5:
+                return "L";
+            case 6:
+                return "(HL)";
+            case 7:
+                return "A";
+            }
+        }
+        std::string CC_str(int y);
+        std::string rp_str(int i);
+        std::string rp2_str(int i);
+
     };
 }
 

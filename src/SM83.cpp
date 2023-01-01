@@ -7,6 +7,11 @@ namespace emulator
     int SM83::tick()
     {
         _cycle_count = 0;
+
+        _cur_instr.name = "";
+        _cur_instr.arg1 = "";
+        _cur_instr.arg2 = "";
+
         auto opcode = read_byte();
 
         uint8_t x, y, z, p, q;
@@ -36,10 +41,16 @@ namespace emulator
                 // Roll/shift register or memory location
                 // rot[y] r[z]
                 _rot.at(y)(*this, r(z));
+
+                _cur_instr.arg1 = r_str(z);
                 break;
             case 1:
                 // Test bit : set the zero flag if bit is *not* set.
                 // BIT y, r[z]
+                _cur_instr.name = "BIT";
+                _cur_instr.arg1 = fmt::format("({:02X})", y);
+                _cur_instr.arg2 = r_str(z);
+
                 _registers.flags.z = !isSetBit(r(z), y);
                 _registers.flags.n = false;
                 _registers.flags.h = true;
@@ -47,11 +58,21 @@ namespace emulator
             case 2:
                 // Reset bit
                 // RES y, r[z]
+                _cur_instr.name = "RES";
+                _cur_instr.arg1 = fmt::format("({:02X})", y);
+                _cur_instr.arg2 = r_str(z);
+               
                 clearBit(r(z), y);
                 break;
             case 3:
                 // Set bit
                 // SET y, r[z]
+                _cur_instr.name = "SET";
+                _cur_instr.arg1 = fmt::format("({:02X})", y);
+                _cur_instr.arg2 = r_str(z);
+
+                fmt::print("SET {}, {}\n", y, r_str(z));
+
                 setBit(r(z), y);
                 break;
             }
@@ -70,19 +91,28 @@ namespace emulator
                 {
                 case 0:
                     // NOP
+                    _cur_instr.name = "NOP";
                     break;
                 case 1:
                     // LD (nn), SP
                     nn = read_byte();
                     write(nn, _registers.SP);
+
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg1 = fmt::format("({:04X})", nn);
+                    _cur_instr.arg2 = "SP";
                     break;
                 case 2:
                     // STOP
+                    _cur_instr.name = "STOP";
                     break;
                 case 3:
                     // JR d
                     d = read_byte();
                     JUMP(_registers.PC + d);
+
+                    _cur_instr.name = "JR";
+                    _cur_instr.arg1 = fmt::format("({:02X})", d);
                     break;
                     // 4..7
                 case 4:
@@ -95,6 +125,10 @@ namespace emulator
                     {
                         JUMP(_registers.PC + d);
                     }
+
+                    _cur_instr.name = "JR";
+                    _cur_instr.arg1 = CC_str(y - 4);
+                    _cur_instr.arg2 = fmt::format("({:02X})", d);
                     break;
                 }
                 break;
@@ -105,6 +139,10 @@ namespace emulator
                     // LD rp[p], nn
                     nn = read_word();
                     *(_rp.at(p)) = nn;
+
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg1 = rp_str(p);
+                    _cur_instr.arg2 = fmt::format("{:04X}", nn);
                 }
                 else
                 {
@@ -114,68 +152,87 @@ namespace emulator
                     set_half_carry_flag_add8(_registers.HL, *(_rp.at(p)));
                     _registers.flags.n = false;
                     _registers.HL = (uint16_t)nnnn;
+
+                    _cur_instr.name = "ADD";
+                    _cur_instr.arg1 = "HL";
+                    _cur_instr.arg2 = rp_str(p);
                 }
                 break;
             case 2:
                 // Indirect loading
                 if (q == 0)
                 {
+                    _cur_instr.name = "LD"; 
+                    _cur_instr.arg2 = "A";
+
                     switch (p)
                     {
                     case 0:
                         // LD (BC),A
                         write(_registers.BC, _registers.A);
+                        _cur_instr.arg1 = "(BC)";
                         break;
                     case 1:
                         // LD (DE),A
                         write(_registers.DE, _registers.A);
+                        _cur_instr.arg1 = "(DE)";
                         break;
                     case 2:
                         // LD (HL+),A
                         write(_registers.HL++, _registers.A);
+                        _cur_instr.arg1 = "(HL+)";
                         break;
                     case 3:
                         // LD (HL-),A
                         write(_registers.HL--, _registers.A);
+                        _cur_instr.arg1 = "(HL-)";
                         break;
                     }
                 }
                 else
                 {
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg1 = "A";
+
                     switch (p)
                     {
                     case 0:
                         // LD A, (BC)
                         _registers.A = read(_registers.BC);
+                        _cur_instr.arg2 = "(BC)";
                         break;
                     case 1:
                         // LD A, (DE)
                         _registers.A = read(_registers.DE);
+                        _cur_instr.arg2 = "(DE)";
                         break;
                     case 2:
                         // LD A, (HL+)
                         _registers.A = read(_registers.HL++);
+                        _cur_instr.arg2 = "(HL+)";
                         break;
                     case 3:
                         // LD A, (HL-)
                         _registers.A = read(_registers.HL--);
+                        _cur_instr.arg2 = "(HL-)";
                         break;
                     }
                 }
                 break;
             case 3:
                 // 16-bit INC/DEC
+                _cur_instr.arg1 = rp_str(p);
                 if (q == 0)
                 {
                     // INC rp[p]
-                    // TO FIX
                     ++(*(_rp.at(p)));
+                    _cur_instr.name = "INC";
                 }
                 else
                 {
                     // DEC rp[p]
-                    // TO FIX
                     --(*(_rp.at(p)));
+                    _cur_instr.name = "DEC";
                 }
                 break;
             case 4:
@@ -186,6 +243,9 @@ namespace emulator
                 _registers.flags.n = false;
                 set_half_carry_flag_add8(r(y), 1);
                 r(y) = n;
+
+                _cur_instr.name = "INC";
+                _cur_instr.arg1 = r_str(y);
                 break;
             case 5:
                 // 8-bit DEC
@@ -195,12 +255,19 @@ namespace emulator
                 _registers.flags.z = r(y) == 0;
                 set_half_carry_flag_sub(n, r(y));
                 _registers.flags.n = true;
+
+                _cur_instr.name = "DEC";
+                _cur_instr.arg1 = r_str(y);
                 break;
             case 6:
                 // 8-bit load immediate
                 // LD r[y], n
                 n = read_byte();
                 r(y) = n;
+
+                _cur_instr.name = "LD";
+                _cur_instr.arg1 = r_str(y);
+                _cur_instr.arg2 = fmt::format("{:02X}", n);
                 break;
             case 7:
                 // Assorted operations on accumulator/flags
@@ -210,21 +277,29 @@ namespace emulator
                     // RLCA
                     RLC(_registers.A);
                     _registers.flags.z = false;
+
+                    _cur_instr.name = "RLCA";
                     break;
                 case 1:
                     // RRCA
                     RRC(_registers.A);
                     _registers.flags.z = false;
+
+                    _cur_instr.name = "RRC";
                     break;
                 case 2:
                     // RLA
                     RL(_registers.A);
                     _registers.flags.z = false;
+
+                    _cur_instr.name = "RLA";
                     break;
                 case 3:
                     // RRA
                     RR(_registers.A);
                     _registers.flags.z = false;
+
+                    _cur_instr.name = "RRA";
                     break;
                 case 4:
                 { // DAA
@@ -247,6 +322,8 @@ namespace emulator
                     n += _registers.flags.n ? -correction : correction;
                     _registers.flags.z = n == 0;
                     _registers.A = n;
+
+                    _cur_instr.name = "DAA";
                 }
                 break;
                 case 5:
@@ -254,18 +331,24 @@ namespace emulator
                     _registers.flags.h = true;
                     _registers.flags.n = true;
                     _registers.A ^= 0xFF;
+
+                    _cur_instr.name = "CPL";
                     break;
                 case 6:
                     // SCF
                     _registers.flags.h = false;
                     _registers.flags.n = false;
                     _registers.flags.c = true;
+
+                    _cur_instr.name = "SCF";
                     break;
                 case 7:
                     // CCF
                     _registers.flags.h = false;
                     _registers.flags.n = false;
                     _registers.flags.c ^= 0x01;
+
+                    _cur_instr.name = "CCF";
                     break;
                 }
                 break;
@@ -276,18 +359,25 @@ namespace emulator
             {
                 // Exception (replaces LD (HL), (HL))
                 // HALT
+                _cur_instr.name = "HALT";
             }
             else
             {
                 // 8-bit loading
                 // LD r[y], r[z]
                 r(y) = r(z);
+
+                _cur_instr.name = "LD";
+                _cur_instr.arg1 = r_str(y);
+                _cur_instr.arg2 = r_str(z);
             }
             break;
         case 2:
             // Operate on accumulator and register/memory location
             // alu[y] r[z]
             ALU(y, r(z));
+
+            _cur_instr.arg2 = r_str(z);
             break;
         case 3:
             switch (z)
@@ -305,11 +395,18 @@ namespace emulator
                     {
                         RET();
                     }
+
+                    _cur_instr.name = "RET";
+                    _cur_instr.arg1 = CC_str(y);
                     break;
                 case 4:
                     // LD (0xFF00 + n), A
                     n = read_byte();
                     write(0xFF00 + n, _registers.A);
+
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg1 = fmt::format("(0xFF00 + {:02X})", n);
+                    _cur_instr.arg2 = "A";
                     break;
                 case 5:
                     // ADD SP, d
@@ -322,11 +419,19 @@ namespace emulator
                     _registers.flags.c = ((_registers.SP & 0xFF) + d) >= 0x100;
 
                     _registers.SP = (uint16_t)nnnn;
+
+                    _cur_instr.name = "ADD";
+                    _cur_instr.arg1 = "SP";
+                    _cur_instr.arg2 = fmt::format("{:02X}", d);
                     break;
                 case 6:
                     // LD A, (0xFF00 + n)
                     n = read_byte();
                     _registers.A = read(0xFF00 + n);
+
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg1 = "A";
+                    _cur_instr.arg2 = fmt::format("(0xFF00 + {:02X})", n);
                     break;
                 case 7:
                     // LD HL, SP + d
@@ -339,6 +444,10 @@ namespace emulator
                     _registers.flags.c = ((_registers.SP & 0xFF) + d) >= 0x100;
 
                     _registers.HL = (uint16_t)nnnn;
+
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg1 = "HL";
+                    _cur_instr.arg2 = fmt::format("(SP + {:02X})", d);
                     break;
                 }
                 break;
@@ -349,6 +458,9 @@ namespace emulator
                     // POP rp2[p]
                     nn = read(_registers.SP++);
                     *(_rp2.at(p)) = combine(nn, read(_registers.SP++));
+
+                    _cur_instr.name = "POP";
+                    _cur_instr.arg1 = rp2_str(p);
                 }
                 else
                 {
@@ -357,19 +469,26 @@ namespace emulator
                     case 0:
                         // RET
                         RET();
+                        _cur_instr.name = "RET";
                         break;
                     case 1:
                         // RETI
                         RET();
+                        _cur_instr.name = "RETI";
                         _ime = true;
                         break;
                     case 2:
                         // JP HL
                         JUMP(_registers.HL);
+                        _cur_instr.name = "JP";
+                        _cur_instr.arg1 = "HL";
                         break;
                     case 3:
                         // LD SP, HL
                         _registers.HL = _registers.SP;
+                        _cur_instr.name = "LD";
+                        _cur_instr.arg1 = "SP";
+                        _cur_instr.arg2 = "HL";
                         break;
                     }
                 }
@@ -388,23 +507,38 @@ namespace emulator
                     {
                         JUMP(nn);
                     }
+                    _cur_instr.name = "JP";
+                    _cur_instr.arg1 = CC_str(y);
+                    _cur_instr.arg2 = fmt::format("{:04X}", nn);
                 case 4:
                     // LD (0xFF00+C), A
                     write(0xFF00 + _registers.C, _registers.A);
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg1 = "(0xFF00+C)";
+                    _cur_instr.arg2 = "A";
                     break;
                 case 5:
                     // LD (nn), A
                     nn = read_word();
                     write(nn, _registers.A);
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg1 = fmt::format("({:04X})", nn);
+                    _cur_instr.arg2 = "A";
                     break;
                 case 6:
                     // LD A, (0xFF00+C)
                     _registers.A = read(0xFF00 + _registers.C);
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg2 = "(0xFF00+C)";
+                    _cur_instr.arg1 = "A";
                     break;
                 case 7:
                     // LD A, (nn)
                     nn = read_word();
                     _registers.A = read(nn);
+                    _cur_instr.name = "LD";
+                    _cur_instr.arg2 = fmt::format("({:04X})", nn);
+                    _cur_instr.arg1 = "A";
                     break;
                 }
                 break;
@@ -416,14 +550,18 @@ namespace emulator
                     // JP nn
                     nn = read_word();
                     JUMP(nn);
+                    _cur_instr.name = "JP";
+                    _cur_instr.arg1 = fmt::format("({:04X})", nn);
                     break;
                 case 6:
                     // DI
                     _ime = false;
+                    _cur_instr.name = "DI";
                     break;
                 case 7:
                     // EI
                     _ime = true;
+                    _cur_instr.name = "EI";
                     break;
                 }
                 break;
@@ -435,6 +573,9 @@ namespace emulator
                 {
                     CALL(nn);
                 }
+                _cur_instr.name = "CALL";
+                _cur_instr.arg1 = CC_str(y);
+                _cur_instr.arg2 = fmt::format("({:04X})", nn);
                 break;
             case 5:
                 // PUSH & various ops
@@ -444,6 +585,9 @@ namespace emulator
                     nn = *(_rp2.at(p));
                     _registers.SP -= 2;
                     write(_registers.SP, nn);
+
+                    _cur_instr.name = "PUSH";
+                    _cur_instr.arg1 = rp2_str(p);
                 }
                 else
                 {
@@ -452,6 +596,9 @@ namespace emulator
                         // CALL nn
                         nn = read_word();
                         CALL(nn);
+
+                        _cur_instr.name = "CALL";
+                        _cur_instr.arg1 = fmt::format("({:04X})", nn);
                     }
                 }
                 break;
@@ -459,12 +606,15 @@ namespace emulator
                 // alu[y] n
                 n = read_byte();
                 ALU(y, n);
+                _cur_instr.arg1 = fmt::format("({:02X})", n);
                 break;
             case 7:
                 // Restart
                 // RST y*8
                 nn = y * 8;
                 CALL(nn);
+                _cur_instr.name = "RST";
+                _cur_instr.arg1 = fmt::format("({:04X})", nn);
                 break;
             }
             break;
@@ -552,6 +702,8 @@ namespace emulator
         _registers.flags.c = tmp >= 0x100;
 
         _registers.A = (uint8_t)tmp;
+
+        _cur_instr.name = "ADD";
     }
 
     void SM83::ADC(uint8_t v)
@@ -564,6 +716,8 @@ namespace emulator
         _registers.flags.c = tmp >= 0x100;
 
         _registers.A = (uint8_t)tmp;
+
+        _cur_instr.name = "ADC";
     }
 
     void SM83::SUB(uint8_t v)
@@ -576,6 +730,8 @@ namespace emulator
         _registers.flags.c = tmp < 0;
 
         _registers.A = (uint8_t)tmp;
+
+        _cur_instr.name = "SUB";
     }
 
     void SM83::SBC(uint8_t v)
@@ -588,6 +744,8 @@ namespace emulator
         _registers.flags.c = tmp < 0;
 
         _registers.A = (uint8_t)tmp;
+
+        _cur_instr.name = "SBC";
     }
 
     void SM83::AND(uint8_t v)
@@ -598,6 +756,8 @@ namespace emulator
         _registers.flags.n = false;
         _registers.flags.h = true;
         _registers.flags.c = false;
+
+        _cur_instr.name = "AND";
     }
 
     void SM83::XOR(uint8_t v)
@@ -608,6 +768,8 @@ namespace emulator
         _registers.flags.n = false;
         _registers.flags.h = false;
         _registers.flags.c = false;
+
+        _cur_instr.name = "XOR";
     }
 
     void SM83::OR(uint8_t v)
@@ -618,6 +780,8 @@ namespace emulator
         _registers.flags.n = false;
         _registers.flags.h = false;
         _registers.flags.c = false;
+
+        _cur_instr.name = "OR";
     }
 
     void SM83::CP(uint8_t v)
@@ -628,6 +792,8 @@ namespace emulator
         _registers.flags.n = true;
         set_half_carry_flag_sub(_registers.A, tmp);
         _registers.flags.c = tmp < 0;
+
+        _cur_instr.name = "CP";
     }
 
     void SM83::CALL(uint16_t adr)
@@ -658,6 +824,8 @@ namespace emulator
         v |= _registers.flags.c;
 
         _registers.flags.z = v == 0;
+
+        _cur_instr.name = "RLC";
     }
 
     void SM83::RRC(uint8_t& v)
@@ -670,6 +838,8 @@ namespace emulator
         v |= (_registers.flags.c << 8);
 
         _registers.flags.z = v == 0;
+
+        _cur_instr.name = "RRC";
     }
 
     void SM83::RL(uint8_t& v)
@@ -683,6 +853,8 @@ namespace emulator
         v |= n;
 
         _registers.flags.z = (v == 0);
+
+        _cur_instr.name = "RL";
     }
 
     void SM83::RR(uint8_t& v)
@@ -695,6 +867,8 @@ namespace emulator
         v >>= 1;
         v |= (n << 8);
         _registers.flags.z = v == 0;
+
+        _cur_instr.name = "RR";
     }
 
     void SM83::SLA(uint8_t& v)
@@ -705,6 +879,8 @@ namespace emulator
         _registers.flags.c = v & 0x80;
         v <<= 1;
         _registers.flags.z = v == 0;
+
+        _cur_instr.name = "SLA";
     }
 
     void SM83::SRA(uint8_t& v)
@@ -716,6 +892,8 @@ namespace emulator
         v >>= 1;
         v &= b7;
         _registers.flags.z = (int8_t)v == 0;
+
+        _cur_instr.name = "SRA";
     }
 
     void SM83::SWAP(uint8_t& v)
@@ -728,6 +906,8 @@ namespace emulator
         _registers.flags.n = false;
         _registers.flags.c = false;
         _registers.flags.z = v == 0;
+
+        _cur_instr.name = "SWAP";
     }
 
     void SM83::SRL(uint8_t& v)
@@ -737,6 +917,8 @@ namespace emulator
         _registers.flags.c = v & 0x01;
         v >>= 1;
         _registers.flags.z = v == 0;
+
+        _cur_instr.name = "SRL";
     }
 
     void SM83::dump(std::FILE* f)
@@ -761,6 +943,11 @@ namespace emulator
         fmt::print(f, ")\n");
     }
 
+    void SM83::print_dis(std::FILE* f)
+    {
+        fmt::print(f, "{} {},{}\n", _cur_instr.name, _cur_instr.arg1, _cur_instr.arg2);
+    }
+
     void SM83::ALU(uint8_t y, uint8_t val)
     {
         _alu.at(y)(*this, val);
@@ -769,5 +956,50 @@ namespace emulator
     bool SM83::CC(uint8_t y)
     {
         return _cc.at(y)(*this);
+    }
+
+    std::string SM83::CC_str(int y)
+    {
+        switch (y)
+        {
+        case 0:
+            return "NZ";
+        case 1:
+            return "Z";
+        case 2:
+            return "NC";
+        case 3:
+            return "C";
+        }
+    }
+
+    std::string SM83::rp_str(int i)
+    {
+        switch (i)
+        {
+        case 0:
+            return "BC";
+        case 1:
+            return "DE";
+        case 2:
+            return "HL";
+        case 3:
+            return "SP";
+        }
+    }
+
+    std::string SM83::rp2_str(int i)
+    {
+        switch (i)
+        {
+        case 0:
+            return "BC";
+        case 1:
+            return "DE";
+        case 2:
+            return "HL";
+        case 3:
+            return "AF";
+        }
     }
 }
