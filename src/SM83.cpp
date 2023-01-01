@@ -799,7 +799,11 @@ namespace emulator
     void SM83::CALL(uint16_t adr)
     {
         _registers.SP -= 2;
-        write(_registers.SP, _registers.PC);
+        auto lsb = LSB(_registers.PC);
+        auto msb = MSB(_registers.PC);
+
+        write(_registers.SP, lsb);
+        write(_registers.SP + 1, msb);
         JUMP(adr);
     }
 
@@ -810,7 +814,12 @@ namespace emulator
 
     void SM83::RET()
     {
-        JUMP(read(_registers.SP));
+        auto lsb = read(_registers.SP);
+        auto msb = read(_registers.SP + 1);
+
+        auto adr = combine(lsb, msb);
+
+        JUMP(adr);
         _registers.SP += 2;
     }
 
