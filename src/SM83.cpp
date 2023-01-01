@@ -705,7 +705,7 @@ namespace emulator
 
         _cur_instr.name = "ADD";
     }
-
+   
     void SM83::ADC(uint8_t v)
     {
         uint16_t tmp = _registers.A + v + _registers.flags.c;

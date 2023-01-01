@@ -75,10 +75,12 @@ namespace emulator
     {
         while (!_ppu.frame_completed())
         {
-            _cpu.dump(_logs);
+            //_cpu.dump(_logs);
             // 1 T-Cycle = 4 M-Cycles
             int elapsed_m_cycles = _cpu.tick();
+            //_cpu.print_dis(_logs);
             _ppu.tick(elapsed_m_cycles * 4);
+            //fflush(_logs);
         }
     }
 

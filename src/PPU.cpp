@@ -6,7 +6,7 @@ namespace emulator
     {
         if (!lcd_enabled())
         {
-                reset();
+            reset();
             return;
         }
 

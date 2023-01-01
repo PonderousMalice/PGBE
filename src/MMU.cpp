@@ -13,13 +13,13 @@ namespace emulator
     {
         if (adr > 0x7FFF)
         {
-        uint8_t& p = get_host_adr(adr);
+            uint8_t& p = get_host_adr(adr);
 
-        if (&p != &_null)
-        {
-            p = v;
+            if (&p != &_null)
+            {
+                p = v;
+            }
         }
-    }
 
         if (adr == 0xFF01)
         {
@@ -32,9 +32,9 @@ namespace emulator
         if (gb_adr <= 0x3FFF)
         {
             if (gb_adr < 0x0100 && boot_rom_enabled())
-        {
+            {
                 return _boot_rom->at(gb_adr);
-        }
+            }
 
             return _rom_bank_00->at(gb_adr);
         }
