@@ -1,23 +1,26 @@
 #pragma once
 #include "MMU.h"
+#include "Timer.h"
 #include <functional>
+#include "utils.h"
+#include <fmt/core.h>
 
 namespace emulator
 {
     class SM83
     {
     public:
-        SM83(MMU* m) :
+        SM83(MMU* m, Timer* timer) :
             _registers()
         {
             _mmu = m;
-            _cycle_count = 0;
+            _timer = timer;
             _ime = false;
         }
 
-        int tick();
-        void dump(std::FILE* f);
-        void print_dis(std::FILE* f);
+        void run();
+        std::string dump();
+        std::string print_dis();
     private:
         MMU* _mmu;
         struct registers
@@ -81,8 +84,8 @@ namespace emulator
             uint16_t SP;
             uint16_t PC;
         } _registers;
-        int _cycle_count;
         bool _ime;
+        Timer* _timer;
 
         struct
         {
@@ -104,8 +107,6 @@ namespace emulator
         bool CC(uint8_t y);
         // Interrupt handler
         //void ISR();
-
-        
 
         void set_half_carry_flag_sub(uint8_t old_value, uint8_t new_value);
         void set_half_carry_flag_add8(uint8_t val1, uint8_t val2);
@@ -192,7 +193,7 @@ namespace emulator
             case 5:
                 return _registers.L;
             case 6:
-                return _mmu->get_host_adr(_registers.HL);
+                return *(_mmu->get_host_adr(_registers.HL));
             case 7:
                 return _registers.A;
 
@@ -214,8 +215,6 @@ namespace emulator
             &_registers.HL,
             &_registers.AF
         };
-
-        
         
         std::string r_str(int i)
         {
@@ -242,7 +241,6 @@ namespace emulator
         std::string CC_str(int y);
         std::string rp_str(int i);
         std::string rp2_str(int i);
-
     };
 }
 

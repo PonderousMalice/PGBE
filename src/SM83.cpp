@@ -1,13 +1,9 @@
 #include "SM83.h"
-#include "utils.h"
-#include <fmt/core.h>
 
 namespace emulator
 {
-    int SM83::tick()
+    void SM83::run()
     {
-        _cycle_count = 0;
-
         _cur_instr.name = "";
         _cur_instr.arg1 = "";
         _cur_instr.arg2 = "";
@@ -77,7 +73,7 @@ namespace emulator
                 break;
             }
 
-            return _cycle_count;
+            return;
         }
 
         switch (x)
@@ -239,7 +235,7 @@ namespace emulator
                 // 8-bit INC
                 // INC r[y]
                 n = r(y) + 1;
-                _registers.flags.z = n == 0;
+                _registers.flags.z = (n == 0);
                 _registers.flags.n = false;
                 set_half_carry_flag_add8(r(y), 1);
                 r(y) = n;
@@ -252,7 +248,7 @@ namespace emulator
                 // DEC r[y]
                 n = r(y);
                 --(r(y));
-                _registers.flags.z = r(y) == 0;
+                _registers.flags.z = (r(y) == 0);
                 set_half_carry_flag_sub(n, r(y));
                 _registers.flags.n = true;
 
@@ -304,23 +300,36 @@ namespace emulator
                 case 4:
                 { // DAA
                     n = _registers.A;
-                    uint8_t correction = 0;
-                    bool prevAdd = !_registers.flags.n; // was previous instr an addition ?
 
-                    // (+) Add 6 to each digit greater than 9, or if it carried
-                    // (-) Subtract 6 from each digit greater than 9, or if it carried
-                    if (_registers.flags.h || (prevAdd && (n & 0x0F) > 9))
+                    if (_registers.flags.n)
                     {
-                        correction |= 0x06;
+                        if (_registers.flags.h)
+                        {
+                            n -= 0x06;
+                        }
+
+                        if (_registers.flags.c)
+                        {
+                            n -= 0x60;
+                        }
                     }
-                    if (_registers.flags.c || (prevAdd && (n > 0x99)))
+                    else
                     {
-                        correction |= 0x60;
-                        _registers.flags.c = true;
+                        if (_registers.flags.h || (n & 0x0F) > 0x09)
+                        {
+                            n += 0x06;
+                        }
+
+                        if (_registers.flags.c || n > 0x99)
+                        {
+                            n += 0x60;
+                            _registers.flags.c = true;
+                        }
                     }
 
-                    n += _registers.flags.n ? -correction : correction;
-                    _registers.flags.z = n == 0;
+                    _registers.flags.z = (n == 0);
+                    _registers.flags.h = 0;
+
                     _registers.A = n;
 
                     _cur_instr.name = "DAA";
@@ -456,9 +465,13 @@ namespace emulator
                 if (q == 0)
                 {
                     // POP rp2[p]
-                    nn = read(_registers.SP++);
-                    *(_rp2.at(p)) = combine(nn, read(_registers.SP++));
-
+                    n = read(_registers.SP++);
+                    *(_rp2.at(p)) = combine(n, read(_registers.SP++));
+                    if (p == 3)
+                    {
+                        _registers.F &= 0xF0;
+                    }
+                    
                     _cur_instr.name = "POP";
                     _cur_instr.arg1 = rp2_str(p);
                 }
@@ -584,7 +597,9 @@ namespace emulator
                     // PUSH rp2[p]
                     nn = *(_rp2.at(p));
                     _registers.SP -= 2;
-                    write(_registers.SP, nn);
+
+                    write(_registers.SP, LSB(nn));
+                    write(_registers.SP + 1, MSB(nn));
 
                     _cur_instr.name = "PUSH";
                     _cur_instr.arg1 = rp2_str(p);
@@ -619,8 +634,6 @@ namespace emulator
             }
             break;
         }
-
-        return _cycle_count;
     }
 
     uint8_t SM83::read_byte()
@@ -638,13 +651,13 @@ namespace emulator
 
     uint8_t SM83::read(uint16_t adr)
     {
-        _cycle_count++;
+        _timer->advance_cycle();
         return _mmu->read(adr);
     }
 
     void SM83::write(uint16_t adr, uint8_t v)
     {
-        _cycle_count++;
+        _timer->advance_cycle();
         _mmu->write(adr, v);
     }
 
@@ -696,10 +709,10 @@ namespace emulator
     {
         uint16_t tmp = _registers.A + v;
 
-        _registers.flags.z = (tmp & (0x00FF)) == 0;
+        _registers.flags.z = ((tmp & 0xFF) == 0);
         _registers.flags.n = false;
         set_half_carry_flag_add8(_registers.A, v);
-        _registers.flags.c = tmp >= 0x100;
+        _registers.flags.c = (tmp > 0xFF);
 
         _registers.A = (uint8_t)tmp;
 
@@ -710,10 +723,10 @@ namespace emulator
     {
         uint16_t tmp = _registers.A + v + _registers.flags.c;
 
-        _registers.flags.z = (tmp & (0x00FF)) == 0;
+        _registers.flags.z = ((tmp & 0xFF) == 0);
         _registers.flags.n = false;
         set_half_carry_flag_add8(_registers.A, v + _registers.flags.c);
-        _registers.flags.c = tmp >= 0x100;
+        _registers.flags.c = (tmp > 0xFF);
 
         _registers.A = (uint8_t)tmp;
 
@@ -724,7 +737,7 @@ namespace emulator
     {
         int16_t tmp = _registers.A - v;
 
-        _registers.flags.z = (tmp & (0x00FF)) == 0;
+        _registers.flags.z = ((tmp & 0xFF) == 0);
         _registers.flags.n = true;
         set_half_carry_flag_sub(_registers.A, tmp);
         _registers.flags.c = tmp < 0;
@@ -738,7 +751,7 @@ namespace emulator
     {
         int16_t tmp = _registers.A - v - _registers.flags.c;
 
-        _registers.flags.z = (tmp & (0x00FF)) == 0;
+        _registers.flags.z = ((tmp & 0xFF) == 0);
         _registers.flags.n = true;
         set_half_carry_flag_sub(_registers.A, tmp);
         _registers.flags.c = tmp < 0;
@@ -799,11 +812,8 @@ namespace emulator
     void SM83::CALL(uint16_t adr)
     {
         _registers.SP -= 2;
-        auto lsb = LSB(_registers.PC);
-        auto msb = MSB(_registers.PC);
-
-        write(_registers.SP, lsb);
-        write(_registers.SP + 1, msb);
+        write(_registers.SP, LSB(_registers.PC));
+        write(_registers.SP + 1, MSB(_registers.PC));
         JUMP(adr);
     }
 
@@ -930,9 +940,10 @@ namespace emulator
         _cur_instr.name = "SRL";
     }
 
-    void SM83::dump(std::FILE* f)
+    std::string SM83::dump()
     {
-        fmt::print(f, "A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X}",
+        std::string res =
+            fmt::format("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X}",
             _registers.A, _registers.F, _registers.B, _registers.C, _registers.D, _registers.E,
             _registers.H, _registers.L, _registers.SP, _registers.PC);
 
@@ -940,21 +951,23 @@ namespace emulator
         {
             if (i == 0)
             {
-                fmt::print(f, " (");
+                res += fmt::format(" (");
             }
             else
             {
-                fmt::print(f, " ");
+                res += fmt::format(" ");
             }
-            fmt::print(f, "{:02X}", read(_registers.PC + i));
+            res += fmt::format("{:02X}", read(_registers.PC + i));
         }
 
-        fmt::print(f, ")\n");
+        res += fmt::format(")\n");
+
+        return res;
     }
 
-    void SM83::print_dis(std::FILE* f)
+    std::string SM83::print_dis()
     {
-        fmt::print(f, "{} {},{}\n", _cur_instr.name, _cur_instr.arg1, _cur_instr.arg2);
+        return fmt::format("{} {},{}\n", _cur_instr.name, _cur_instr.arg1, _cur_instr.arg2);
     }
 
     void SM83::ALU(uint8_t y, uint8_t val)

@@ -4,67 +4,131 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <fmt/core.h>
+#include <cstring>
 
 namespace emulator
 {
+    union LCD_C
+    {
+        struct
+        {
+            uint8_t bg_win_enable_prio : 1;
+            uint8_t obj_enable : 1;
+            uint8_t obj_size : 1;
+            uint8_t bg_tile_map_area : 1;
+            uint8_t bg_win_tile_data_area : 1;
+            uint8_t win_enable : 1;
+            uint8_t win_tile_map_area : 1;
+            uint8_t lcd_ppu_enable : 1;
+        } flags;
+        uint8_t v;
+    };
+
+    union STAT_REG
+    {
+        struct
+        {
+            uint8_t ppu_mode : 2;
+            uint8_t coincidence_flag : 1;
+            uint8_t mode_0_interupt : 1;
+            uint8_t mode_1_interupt : 1;
+            uint8_t mode_2_interupt : 1;
+            uint8_t lcy_ly_interupt : 1;
+            uint8_t padding : 1;
+
+        } flags;
+        uint8_t v;
+    };
+
+    struct fifo_entry
+    {
+        uint8_t type : 1; // 0 = BG, 1 = Sprite
+        uint8_t palette : 1; // Sprites only: Selects Sprite Palette
+        uint8_t color : 2; // Color in palette
+    };
+
+    struct color
+    {
+        uint8_t r;
+        uint8_t g;
+        uint8_t b;
+    };
+
+    // sprites OAM data
+    struct sprite_attributes
+    {
+        uint8_t y_pos;
+        uint8_t x_pos;
+        uint8_t tile_id;
+        union
+        {
+            struct
+            {
+                uint8_t cgb : 4;
+                uint8_t palette_nb : 1;
+                uint8_t x_flip : 1;
+                uint8_t y_flip : 1;
+                uint8_t obj_to_bg_prio : 1;
+            } flags;
+            uint8_t f;
+        };
+    };
+
     // I/O Registers - 0xFF00 -> 0xFF7F 
     enum IO_REG_CODE
     {
         // Joypad Input
-        P1_JOYP = 0xFF00,
+        P1_JOYP = 0x00,
 
         // Serial Transfer
-        SB = 0xFF01, // Serial Transfer Data
-        SC = 0xFF02, // Serial Transfer Control
+        SB = 0x01, // Serial Transfer Data
+        SC = 0x02, // Serial Transfer Control
 
         // Timer and divider,
-        DIV = 0xFF04, // Divider register
-        TIMA = 0xFF05, // Timer counter
-        TMA = 0xFF06, //Timer modulo
-        TAC = 0xFF07, // Timer control
+        DIV = 0x04, // Divider register
+        TIMA = 0x05, // Timer counter
+        TMA = 0x06, //Timer modulo
+        TAC = 0x07, // Timer control
 
         // Audio
-        NR52 = 0xFF26, // Sound on/off
-        NR51 = 0xFF25, // Sound panning
-        NR50 = 0xFF24, // Master volume & VIN panning
-        NR10 = 0xFF10, // Channel 1 sweep
-        NR11 = 0xFF11, // Channel 1 length timer & duty cycle
-        NR12 = 0xFF12, // Channel 1 volume & envelope
-        NR13 = 0xFF13, // Channel 1 wavelength low [write-only]
-        NR14 = 0xFF14, // Channel 1 wavelength high & control
-        NR21 = 0xFF16, // Channel 2 length timer & duty cycle
-        NR22 = 0xFF17, // Channel 2 volume & envelope
-        NR23 = 0xFF18, // Channel 2 wavelength low [write-only]
-        NR24 = 0xFF19, // Channel 2 wavelength high & control
-        NR30 = 0xFF1A, // Channel 3 DAC enable
-        NR31 = 0xFF1B, // Channel 3 length timer [write-only]
-        NR32 = 0xFF1C, // Channel 3 output level
-        NR33 = 0xFF1D, // Channel 3 wavelength low [write-only]
-        NR34 = 0xFF1E, // Channel 3 wavelength high & control
-        NR41 = 0xFF20, // Channel 4 length time [write-only]
-        NR42 = 0xFF21, // Channel 4 volume & envelope
-        NR43 = 0xFF22, // Channel frequency & randomness
-        NR44 = 0xFF23, // Channel 4 control
+        NR52 = 0x26, // Sound on/off
+        NR51 = 0x25, // Sound panning
+        NR50 = 0x24, // Master volume & VIN panning
+        NR10 = 0x10, // Channel 1 sweep
+        NR11 = 0x11, // Channel 1 length timer & duty cycle
+        NR12 = 0x12, // Channel 1 volume & envelope
+        NR13 = 0x13, // Channel 1 wavelength low [write-only]
+        NR14 = 0x14, // Channel 1 wavelength high & control
+        NR21 = 0x16, // Channel 2 length timer & duty cycle
+        NR22 = 0x17, // Channel 2 volume & envelope
+        NR23 = 0x18, // Channel 2 wavelength low [write-only]
+        NR24 = 0x19, // Channel 2 wavelength high & control
+        NR30 = 0x1A, // Channel 3 DAC enable
+        NR31 = 0x1B, // Channel 3 length timer [write-only]
+        NR32 = 0x1C, // Channel 3 output level
+        NR33 = 0x1D, // Channel 3 wavelength low [write-only]
+        NR34 = 0x1E, // Channel 3 wavelength high & control
+        NR41 = 0x20, // Channel 4 length time [write-only]
+        NR42 = 0x21, // Channel 4 volume & envelope
+        NR43 = 0x22, // Channel frequency & randomness
+        NR44 = 0x23, // Channel 4 control
 
         // LCD
-        LCDC = 0xFF40, // LCD Control
-        STAT = 0xFF41, // LCD status
-        SCY = 0xFF42, // Viewport Y position
-        SCX = 0xFF43, // Viewport X postion
-        LY = 0xFF44, // LCD Y coordinate [read-only]
-        LYC = 0xFF45, // LY compare
-        WY = 0xFF4A, // Window Y postion
-        WX = 0xFF4B, // Window X position +7
-        BGP = 0xFF47, // BG palette data
+        LCDC = 0x40, // LCD Control
+        STAT = 0x41, // LCD status
+        SCY = 0x42, // Viewport Y position
+        SCX = 0x43, // Viewport X postion
+        LY = 0x44, // LCD Y coordinate [read-only]
+        LYC = 0x45, // LY compare
+        WY = 0x4A, // Window Y postion
+        WX = 0x4B, // Window X position +7
+        BGP = 0x47, // BG palette data
 
-        // MISC
-        TILE_MAP1 = 0x9800, //default
-        TILE_MAP2 = 0x9C00,
-
-        BANK = 0xFF50,
-        CARTRIDGE_TYPE = 0x147,
-        ROM_SIZE = 0x148,
-        RAM_SIZE = 0x149,
+        // SPECIAL
+        DMA = 0x46,
+        BANK = 0x50,
     };
 
     class MMU
@@ -72,50 +136,52 @@ namespace emulator
     public:
         MMU()
         {
-            _boot_rom = std::make_unique<std::array<uint8_t, 256>>();
-            _rom_bank_00 = std::make_unique <std::array<uint8_t, 0x4000>>();
-            _rom_bank_00->fill(0xFF);
-            _rom_bank_01 = std::make_unique <std::array<uint8_t, 0x4000>>();
-            _rom_bank_00->fill(0xFF);
-            _vram = std::make_unique <std::array<uint8_t, 0x2000>>();
-            _vram->fill(0);
-            _external_ram = std::make_unique <std::array<uint8_t, 0x2000>>();
-            _wram = std::make_unique <std::array<uint8_t, 0x2000>>();
-            _wram->fill(0);
-            OAM = std::make_unique <std::array<uint8_t, 0x00A0>>();
+            BOOT_ROM = std::make_unique<std::array<uint8_t, 256>>();
+            ROM_BANK_00 = std::make_unique<std::array<uint8_t, 0x4000>>();
+            ROM_BANK_00->fill(0xFF);
+            ROM_BANK_01 = std::make_unique<std::array<uint8_t, 0x4000>>();
+            ROM_BANK_00->fill(0xFF);
+            VRAM = std::make_unique<std::array<uint8_t, 0x2000>>();
+            VRAM->fill(0);
+            EXT_RAM = std::make_unique<std::array<uint8_t, 0x2000>>();
+            EXT_RAM->fill(0);
+            WRAM = std::make_unique<std::array<uint8_t, 0x2000>>();
+            WRAM->fill(0);
+            OAM = std::make_unique<std::array<uint8_t, 0x00A0>>();;
             OAM->fill(0);
-            _io_reg = std::make_unique <std::array<uint8_t, 0x0080>>();
-            _io_reg->fill(0);
-            _hram = std::make_unique <std::array<uint8_t, 0x007F>>();
-            _hram->fill(0);
-            _ie_reg = 0;
-            _null = 0xFF;
+            IO_REG = std::make_unique<std::array<uint8_t, 0x0080>>();
+            IO_REG->fill(0);
+            HRAM = std::make_unique<std::array<uint8_t, 0x007F>>();
+            HRAM->fill(0);
+            IE_REG = 0;
+
+            _dma_bus_conflict = false;
+            _boot_rom_enabled = true;
         }
 
         uint8_t read(uint16_t adr);
         void write(uint16_t adr, uint8_t v);
-        uint8_t& get_host_adr(uint16_t gb_adr);
+        uint8_t* get_host_adr(uint16_t gb_adr);
+        bool is_locked(uint16_t gb_adr);
+
+        void oam_dma_transfer(uint8_t src);
 
         void load_boot_rom(std::string path);
         void load_game_rom(std::string path);
 
-        bool boot_rom_enabled()
-        {
-            return read(BANK) == 0;
-        };
-
+        std::unique_ptr<std::array<uint8_t, 0x0100>> BOOT_ROM;
+        std::unique_ptr<std::array<uint8_t, 0x4000>> ROM_BANK_00;
+        std::unique_ptr<std::array<uint8_t, 0x4000>> ROM_BANK_01;
+        std::unique_ptr<std::array<uint8_t, 0x2000>> VRAM;
+        std::unique_ptr<std::array<uint8_t, 0x2000>> EXT_RAM;
+        std::unique_ptr<std::array<uint8_t, 0x2000>> WRAM;
         std::unique_ptr<std::array<uint8_t, 0x00A0>> OAM;
+        std::unique_ptr<std::array<uint8_t, 0x0080>> IO_REG;
+        std::unique_ptr<std::array<uint8_t, 0x007F>> HRAM;
+        uint8_t IE_REG;
     private:
-        std::unique_ptr<std::array<uint8_t, 0x0100>> _boot_rom;
-        std::unique_ptr<std::array<uint8_t, 0x4000>> _rom_bank_00;
-        std::unique_ptr<std::array<uint8_t, 0x4000>> _rom_bank_01;
-        std::unique_ptr<std::array<uint8_t, 0x2000>> _vram;
-        std::unique_ptr<std::array<uint8_t, 0x2000>> _external_ram;
-        std::unique_ptr<std::array<uint8_t, 0x2000>> _wram;
-        std::unique_ptr<std::array<uint8_t, 0x0080>> _io_reg;
-        std::unique_ptr<std::array<uint8_t, 0x007F>> _hram;
-        uint8_t _ie_reg;
-        uint8_t _null;
+        bool _dma_bus_conflict;
+        bool _boot_rom_enabled;
 
         std::vector<uint8_t> _rom_gb;
     };

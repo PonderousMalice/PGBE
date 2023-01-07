@@ -24,6 +24,7 @@
     <ClCompile Include="MMU.cpp" />
     <ClCompile Include="PPU.cpp" />
     <ClCompile Include="SM83.cpp" />
+    <ClCompile Include="Timer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="const.h" />
@@ -31,6 +32,7 @@
     <ClInclude Include="MMU.h" />
     <ClInclude Include="PPU.h" />
     <ClInclude Include="SM83.h" />
+    <ClInclude Include="Timer.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

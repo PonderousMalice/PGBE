@@ -1,8 +1,4 @@
 #include "GameBoy.h"
-#include <fmt/core.h>
-#include <fstream>
-#include <chrono>
-#include <thread>
 
 using namespace std::chrono;
 
@@ -41,8 +37,8 @@ namespace emulator
     void GameBoy::on_init()
     {
         init_sdl();
-        _mmu.load_boot_rom(boot_rom_path);
-        _mmu.load_game_rom(gb_rom_path);
+        _mmu->load_boot_rom(boot_rom_path);
+        //_mmu->load_game_rom(gb_rom_path);
         _running = true;
     }
 
@@ -73,14 +69,11 @@ namespace emulator
 
     void GameBoy::on_loop()
     {
-        while (!_ppu.frame_completed())
+        while (!_ppu->frame_completed())
         {
-            //_cpu.dump(_logs);
-            // 1 T-Cycle = 4 M-Cycles
-            int elapsed_m_cycles = _cpu.tick();
-            //_cpu.print_dis(_logs);
-            _ppu.tick(elapsed_m_cycles * 4);
-            //fflush(_logs);
+            _logs << _cpu->dump();
+            _cpu->run();
+            _logs << _cpu->print_dis() << std::flush;
         }
     }
 
@@ -92,12 +85,12 @@ namespace emulator
         {
             for (int x = 0; x < viewport_width; ++x)
             {
-                auto color = _ppu.get_color(x, y);
+                auto color = _ppu->get_color(x, y);
                 SDL_SetRenderDrawColor(_renderer, color.r, color.g, color.b, 255);
                 SDL_RenderDrawPoint(_renderer, x, y);
             }
         }
-        _ppu.reset();
+        _ppu->reset();
         SDL_RenderPresent(_renderer);
     }
 }
