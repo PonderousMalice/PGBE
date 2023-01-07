@@ -33,6 +33,11 @@
 
 *.log
 *.bin
+*.pd
+*.gb
 .vs/*
-src/*
 x64/*
+*.build
+*.txt
+src/x64/
+*.sym
