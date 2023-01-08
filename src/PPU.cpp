@@ -34,7 +34,7 @@ namespace emulator
             if (_cur_cycle_in_scanline >= scanline_duration)
             {
                 _cur_cycle_in_scanline = 0;
-                if (++rLY() >= nb_scanlines - 10)
+                if (++_LY >= nb_scanlines - 10)
                 {
                     switch_mode(V_BLANK);
                 }
@@ -49,10 +49,10 @@ namespace emulator
             if (_cur_cycle_in_scanline >= scanline_duration)
             {
                 _cur_cycle_in_scanline = 0;
-                ++rLY();
+                ++_LY;
             }
 
-            if (rLY() >= nb_scanlines)
+            if (_LY >= nb_scanlines)
             {
                 _frame_completed = true;
             }
@@ -62,7 +62,7 @@ namespace emulator
 
     void PPU::draw_line()
     {
-        if (rLY() >= 144)
+        if (_LY >= 144)
         {
             _line_drawn = true;
             return;
@@ -72,24 +72,35 @@ namespace emulator
 
         for (int x_pos = 0; x_pos < viewport_width;)
         {
-            auto tile_id = get_tile_id(x_pos);
-            auto tile_data = get_tile_data(tile_id);
+            // bg fetch
+            auto bg_tile_id = get_tile_id(x_pos);
+            auto bg_tile_data = get_tile_data(bg_tile_id);
+            std::array<uint8_t, 2> sprite_tile_data{};
 
-            int i = (x_pos == 0) ? 7 - (rSCX() % 8) : 7;
+            // sprite fetch ~not sure kek
+            for (auto obj : _sprite_buffer)
+            {
+                if (obj.x_pos <= x_pos)
+                {
+                    sprite_tile_data = get_tile_data(obj.tile_id, true);
+                    break;
+                }
+            }
+
+            int i = (x_pos == 0) ? 7 - (_SCX % 8) : 7;
 
             for (; i >= 0; --i)
             {
-                uint8_t bit_low = (tile_data.at(0) & (1 << i)) >> i;
-                uint8_t bit_high = (tile_data.at(1) & (1 << i)) >> i;
-                bit_high <<= 1;
-
-                fifo_entry bg
+                auto bg_px = get_pixel(bg_tile_data, i, false);
+                if (!sprite_tile_data.empty())
                 {
-                    .type = 0, // BG
-                    .palette = 0, // for sprites only
-                    .color = (uint8_t)(bit_low + bit_high)
-                };
-                _framebuffer.at(x_pos++ + rLY() * viewport_width) = bg.color;
+                    auto sprite_px = get_pixel(sprite_tile_data, i, true);
+                    
+                }
+                //else
+                {
+                    _framebuffer.at(x_pos++ + _LY * viewport_width) = bg_px.color;
+                }
             }
         }
 
@@ -99,12 +110,12 @@ namespace emulator
     void PPU::scan_oam()
     {
         // 80 T-Cycles
-        for (int i = 0; i < OAM->size(); ++i)
+        for (int i = 0; i < _oam->size(); ++i)
         {
-            auto o = OAM->at(i);
-            bool isTall = rLCDC().flags.obj_size;
+            auto o = _oam->at(i);
+            bool isTall = _LCDC.flags.obj_size;
 
-            if ((o.x_pos > 0) && ((rLY() + 16) >= o.y_pos) && ((rLY() + 16) < (o.y_pos + (isTall ? 16 : 8))) && _sprite_buffer.size() < 10)
+            if ((o.x_pos > 0) && ((_LY + 16) >= o.y_pos) && ((_LY + 16) < (o.y_pos + (isTall ? 16 : 8))) && _sprite_buffer.size() < 10)
             {
                 _sprite_buffer.push_back(o);
             }
@@ -114,7 +125,7 @@ namespace emulator
     void PPU::switch_mode(state new_state)
     {
         _state = new_state;
-        rSTAT().flags.ppu_mode = new_state;
+        _STAT.flags.ppu_mode = new_state;
     }
 
     bool PPU::frame_completed()
@@ -130,7 +141,7 @@ namespace emulator
     void PPU::reset()
     {
         switch_mode(OAM_SCAN);
-        rLY() = 0;
+        _LY = 0;
         _window_line_counter = 0;
         _framebuffer.fill(0);
         _frame_completed = false;
@@ -138,13 +149,14 @@ namespace emulator
 
     uint8_t PPU::get_tile_id(int x_pos)
     {
+        // RM
         uint16_t tile_map_adr = 0x9800;
-        if (rLCDC().flags.bg_tile_map_area)
+        if (_LCDC.flags.bg_tile_map_area)
         {
             tile_map_adr = 0x9C00;
         }
 
-        uint16_t offset_y, offset_x = ((x_pos / 8) + (rSCX() / 8)) & 0x1F;
+        uint16_t offset_y, offset_x = ((x_pos / 8) + (_SCX / 8)) & 0x1F;
 
         if (window_enabled())
         {
@@ -152,16 +164,16 @@ namespace emulator
         }
         else
         {
-            offset_y = 32 * (((rLY() + rSCY()) & 0xFF) / 8);
+            offset_y = 32 * (((_LY + _SCY) & 0xFF) / 8);
         }
 
         tile_map_adr += (offset_x + offset_y) & 0x3FF;
 
         tile_map_adr -= 0x8000;
-        return VRAM->at(tile_map_adr);
+        return _vram->at(tile_map_adr);
     }
 
-    std::array<uint8_t, 2> PPU::get_tile_data(uint8_t tile_id)
+    std::array<uint8_t, 2> PPU::get_tile_data(uint8_t tile_id, bool sprite)
     {
         uint16_t tile_data_adr, offset;
 
@@ -171,10 +183,10 @@ namespace emulator
         }
         else
         {
-            offset = 2 * ((rLY() + rSCY()) % 8);
+            offset = 2 * ((_LY + _SCY) % 8);
         }
 
-        if (rLCDC().flags.bg_win_tile_data_area)
+        if (_LCDC.flags.bg_win_tile_data_area || sprite)
         {
             tile_data_adr = 0x8000 + tile_id * 16;
         }
@@ -183,14 +195,31 @@ namespace emulator
             tile_data_adr = 0x8800 + (int8_t)(tile_id * 16);
         }
 
+        // RM
         tile_data_adr -= 0x8000;
         
         std::array<uint8_t, 2> res
         {
-            VRAM->at(tile_data_adr + offset),
-            VRAM->at(tile_data_adr + offset + 1)
+            _vram->at(tile_data_adr + offset),
+            _vram->at(tile_data_adr + offset + 1)
         };
         
         return res;
+    }
+
+    fifo_entry PPU::get_pixel(std::array<uint8_t, 2> tile_data, int i, bool sprite)
+    {
+        uint8_t bit_low = (tile_data.at(0) & (1 << i)) >> i;
+        uint8_t bit_high = (tile_data.at(1) & (1 << i)) >> i;
+        bit_high <<= 1;
+
+        fifo_entry entry
+        {
+            .type = sprite,
+            .palette = sprite,
+            .color = (uint8_t)(bit_low + bit_high)
+        };
+
+        return entry;
     }
 }

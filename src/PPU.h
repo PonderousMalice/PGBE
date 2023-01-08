@@ -9,7 +9,14 @@ namespace emulator
     class PPU
     {
     public:
-        PPU(MMU* memory)
+        PPU(MMU* m) :
+            _LCDC((LCD_C&)m->IO_REG->at(LCDC)),
+            _STAT((STAT_REG&)m->IO_REG->at(STAT)),
+            _LY(m->IO_REG->at(LY)),
+            _SCX(m->IO_REG->at(SCX)),
+            _SCY(m->IO_REG->at(SCY)),
+            _oam((std::array<sprite_attributes, 40>*)m->OAM.get()),
+            _vram(m->VRAM.get())
         {
             _window_line_counter = 0;
             _frame_completed = false;
@@ -18,19 +25,19 @@ namespace emulator
             _state = H_BLANK;
             _framebuffer.fill(0);
             _line_drawn = false;
-            OAM = (std::array<sprite_attributes, 40>*) memory->OAM.get();
-            VRAM = memory->VRAM.get();
-            IO_REG = memory->IO_REG.get();
         }
 
         void tick();
         void reset();
         color get_color(int x, int y);
-        bool frame_completed();        
+        bool frame_completed();
     private:
-        std::array<sprite_attributes, 40>* OAM;
-        std::array<uint8_t, 0x2000>* VRAM;
-        std::array<uint8_t, 0x0080>* IO_REG;
+        LCD_C& _LCDC;
+        STAT_REG& _STAT;
+        uint8_t &_LY, &_SCX, &_SCY;
+        
+        std::array<sprite_attributes, 40>* _oam;
+        std::array<uint8_t, 0x2000>* _vram;
 
         std::array<uint8_t, buffer_size> _framebuffer;
         std::vector<sprite_attributes> _sprite_buffer;
@@ -80,41 +87,18 @@ namespace emulator
         void scan_oam();
         void switch_mode(state new_state);
         uint8_t get_tile_id(int x_pos);
-        std::array<uint8_t, 2> get_tile_data(uint8_t tile_id);
+        std::array<uint8_t, 2> get_tile_data(uint8_t tile_id, bool sprite = false);
 
-        LCD_C& rLCDC()
-        {
-            return (LCD_C&)IO_REG->at(LCDC);
-        }
-
-        STAT_REG& rSTAT()
-        {
-            return (STAT_REG&)IO_REG->at(STAT);
-        }
-
-        uint8_t& rLY()
-        {
-            return (uint8_t&)IO_REG->at(LY);
-        }
-
-        uint8_t& rSCX()
-        {
-            return (uint8_t&)IO_REG->at(SCX);
-        }
-
-        uint8_t& rSCY()
-        {
-            return (uint8_t&)IO_REG->at(SCY);
-        }
+        fifo_entry get_pixel(std::array<uint8_t, 2> tile_data, int i, bool sprite);
 
         bool window_enabled()
         {
-            return rLCDC().flags.win_enable;
+            return _LCDC.flags.win_enable;
         }
 
         bool lcd_enabled()
         {
-            return rLCDC().flags.lcd_ppu_enable;
+            return _LCDC.flags.lcd_ppu_enable;
         }
     };
 }

@@ -32,7 +32,10 @@ namespace emulator
 
     void Timer::advance_cycle()
     {
-        update_clock();
-        _ppu->tick();
+        for (int i = 0; i < 4; ++i)
+        {
+            _ppu->tick();
+            update_clock();
+        }  
     }
 }

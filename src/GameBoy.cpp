@@ -22,13 +22,14 @@ namespace emulator
             {
                 on_event(&e);
             }
+
             on_loop();
             on_render();
             auto end = high_resolution_clock::now();
 
-            auto elapsed_time = end - start;
+            double elapsed_time = duration_cast<milliseconds>(end - start).count();
 
-            auto sleep_time = frame_duration_ms - duration_cast<milliseconds>(elapsed_time).count();
+            auto sleep_time = frame_duration_ms - elapsed_time;
 
             std::this_thread::sleep_for(sleep_time * 1ms);
         }
@@ -71,9 +72,9 @@ namespace emulator
     {
         while (!_ppu->frame_completed())
         {
-            _logs << _cpu->dump();
+            //_logs << _cpu->dump();
             _cpu->run();
-            _logs << _cpu->print_dis() << std::flush;
+            //_logs << _cpu->print_dis() << std::flush;
         }
     }
 
