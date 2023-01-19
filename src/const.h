@@ -19,4 +19,3 @@ static constexpr auto frame_duration_ms = dot * frame_duration * 1000; // millis
 
 static constexpr auto boot_rom_path = "DMG_ROM.bin";
 static constexpr auto log_file_path = "gb.log";
-static constexpr auto gb_rom_path = "dmg-acid2.gb";

@@ -2,11 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <vector>
 #include <string>
-#include <fstream>
-#include <fmt/core.h>
-#include <cstring>
 
 namespace emulator
 {
@@ -129,35 +125,16 @@ namespace emulator
         // SPECIAL
         DMA = 0x46,
         BANK = 0x50,
+        IF = 0x0F,
+        IE = 0xFF
     };
+
+    class Timer;
 
     class MMU
     {
     public:
-        MMU()
-        {
-            BOOT_ROM = std::make_unique<std::array<uint8_t, 256>>();
-            ROM_BANK_00 = std::make_unique<std::array<uint8_t, 0x4000>>();
-            ROM_BANK_00->fill(0xFF);
-            ROM_BANK_01 = std::make_unique<std::array<uint8_t, 0x4000>>();
-            ROM_BANK_00->fill(0xFF);
-            VRAM = std::make_unique<std::array<uint8_t, 0x2000>>();
-            VRAM->fill(0);
-            EXT_RAM = std::make_unique<std::array<uint8_t, 0x2000>>();
-            EXT_RAM->fill(0);
-            WRAM = std::make_unique<std::array<uint8_t, 0x2000>>();
-            WRAM->fill(0);
-            OAM = std::make_unique<std::array<uint8_t, 0x00A0>>();;
-            OAM->fill(0);
-            IO_REG = std::make_unique<std::array<uint8_t, 0x0080>>();
-            IO_REG->fill(0);
-            HRAM = std::make_unique<std::array<uint8_t, 0x007F>>();
-            HRAM->fill(0);
-            IE_REG = 0;
-
-            _dma_bus_conflict = false;
-            _boot_rom_enabled = true;
-        }
+        MMU();
 
         uint8_t read(uint16_t adr);
         void write(uint16_t adr, uint8_t v);
@@ -179,10 +156,10 @@ namespace emulator
         std::unique_ptr<std::array<uint8_t, 0x0080>> IO_REG;
         std::unique_ptr<std::array<uint8_t, 0x007F>> HRAM;
         uint8_t IE_REG;
+        uint16_t INTERNAL_DIV;
+        Timer* timer;
     private:
         bool _dma_bus_conflict;
         bool _boot_rom_enabled;
-
-        std::vector<uint8_t> _rom_gb;
     };
 }

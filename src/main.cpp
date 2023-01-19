@@ -1,11 +1,11 @@
-#include "GameBoy.h"
+#include "App.h"
 
 using namespace emulator;
 
 int main(int argc, char* argv[])
 {
-    GameBoy gb;
-    gb.start();
+    App app;
+    app.run();
 
     return 0;
 }

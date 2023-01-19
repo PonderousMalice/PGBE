@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="App.cpp" />
     <ClCompile Include="GameBoy.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MMU.cpp" />
@@ -27,6 +28,7 @@
     <ClCompile Include="Timer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="App.h" />
     <ClInclude Include="const.h" />
     <ClInclude Include="GameBoy.h" />
     <ClInclude Include="MMU.h" />

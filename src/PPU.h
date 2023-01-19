@@ -1,31 +1,16 @@
 #pragma once
-#include "MMU.h"
 #include <array>
 #include <vector>
 #include "const.h"
+#include "MMU.h"
 
 namespace emulator
 {
     class PPU
     {
     public:
-        PPU(MMU* m) :
-            _LCDC((LCD_C&)m->IO_REG->at(LCDC)),
-            _STAT((STAT_REG&)m->IO_REG->at(STAT)),
-            _LY(m->IO_REG->at(LY)),
-            _SCX(m->IO_REG->at(SCX)),
-            _SCY(m->IO_REG->at(SCY)),
-            _oam((std::array<sprite_attributes, 40>*)m->OAM.get()),
-            _vram(m->VRAM.get())
-        {
-            _window_line_counter = 0;
-            _frame_completed = false;
-            _drawing_cycle_nb = 172;
-            _cur_cycle_in_scanline = 0;
-            _state = H_BLANK;
-            _framebuffer.fill(0);
-            _line_drawn = false;
-        }
+        PPU(LCD_C& LCDC, STAT_REG& STAT, uint8_t& LY, uint8_t& SCX, uint8_t& SCY,
+            std::array<sprite_attributes, 40>* OAM, std::array<uint8_t, 0x2000>* VRAM);
 
         void tick();
         void reset();

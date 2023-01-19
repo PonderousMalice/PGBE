@@ -1,951 +1,1035 @@
 #include "SM83.h"
+#include "utils.h"
+#include <fmt/core.h>
+#include <functional>
 
 namespace emulator
 {
+    template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
+
+    SM83::SM83(MMU* mmu, Timer* t) :
+        m_registers(),
+        m_ime(false),
+        m_mmu(mmu),
+        m_timer(t)
+    {}
+
     void SM83::run()
     {
-        _cur_instr.name = "";
-        _cur_instr.arg1 = "";
-        _cur_instr.arg2 = "";
+        auto opcode = m_fetch();
+        auto instr = m_decode(opcode);
+        m_execute(instr);
+    }
 
-        auto opcode = read_byte();
+    OP SM83::m_decode(uint8_t opcode)
+    {
+        uint8_t x = (opcode & 0xC0) >> 6,
+            y = (opcode & 0x38) >> 3,
+            z = (opcode & 0x07),
+            p = (opcode & 0x30) >> 4,
+            q = (opcode & 0x08) >> 3;
 
-        uint8_t x, y, z, p, q;
-        uint32_t nnnn = 0;
-        uint16_t nn = 0;
-        uint8_t n = 0;
-        int8_t d = 0;
-        uint8_t* ptr = nullptr;
-
-        x = (opcode & 0xC0) >> 6;
-        y = (opcode & 0x38) >> 3;
-        z = (opcode & 0x07);
-        p = (opcode & 0x30) >> 4;
-        q = (opcode & 0x08) >> 3;
+        OP res
+        {
+            .y = y
+        };
 
         if (opcode == 0xCB)
         {
-            opcode = read_byte();
+            opcode = m_fetch();
 
             x = (opcode & 0xC0) >> 6;
             y = (opcode & 0x38) >> 3;
             z = (opcode & 0x07);
+
+            res.y = y;
+            res.args[0] = m_r.at(z);
 
             switch (x)
             {
             case 0:
                 // Roll/shift register or memory location
                 // rot[y] r[z]
-                _rot.at(y)(*this, r(z));
-
-                _cur_instr.arg1 = r_str(z);
+                res.name = OP::ROT;
                 break;
             case 1:
                 // Test bit : set the zero flag if bit is *not* set.
                 // BIT y, r[z]
-                _cur_instr.name = "BIT";
-                _cur_instr.arg1 = fmt::format("({:02X})", y);
-                _cur_instr.arg2 = r_str(z);
-
-                _registers.flags.z = !isSetBit(r(z), y);
-                _registers.flags.n = false;
-                _registers.flags.h = true;
+                res.name = OP::BIT;
                 break;
             case 2:
                 // Reset bit
                 // RES y, r[z]
-                _cur_instr.name = "RES";
-                _cur_instr.arg1 = fmt::format("({:02X})", y);
-                _cur_instr.arg2 = r_str(z);
-               
-                clearBit(r(z), y);
+                res.name = OP::RES;
                 break;
             case 3:
                 // Set bit
                 // SET y, r[z]
-                _cur_instr.name = "SET";
-                _cur_instr.arg1 = fmt::format("({:02X})", y);
-                _cur_instr.arg2 = r_str(z);
-
-                fmt::print("SET {}, {}\n", y, r_str(z));
-
-                setBit(r(z), y);
+                res.name = OP::SET;
                 break;
             }
-
-            return;
         }
-
-        switch (x)
+        else
         {
-        case 0:
-            switch (z)
+            switch (x)
             {
             case 0:
-                // Relative jumps and assorted ops
-                switch (y)
+                switch (z)
                 {
                 case 0:
-                    // NOP
-                    _cur_instr.name = "NOP";
-                    break;
-                case 1:
-                    // LD (nn), SP
-                    nn = read_byte();
-                    write(nn, _registers.SP);
-
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg1 = fmt::format("({:04X})", nn);
-                    _cur_instr.arg2 = "SP";
-                    break;
-                case 2:
-                    // STOP
-                    _cur_instr.name = "STOP";
-                    break;
-                case 3:
-                    // JR d
-                    d = read_byte();
-                    JUMP(_registers.PC + d);
-
-                    _cur_instr.name = "JR";
-                    _cur_instr.arg1 = fmt::format("({:02X})", d);
-                    break;
-                    // 4..7
-                case 4:
-                case 5:
-                case 6:
-                case 7:
-                    // JR cc[y - 4], d
-                    d = read_byte();
-                    if (CC(y - 4))
-                    {
-                        JUMP(_registers.PC + d);
-                    }
-
-                    _cur_instr.name = "JR";
-                    _cur_instr.arg1 = CC_str(y - 4);
-                    _cur_instr.arg2 = fmt::format("({:02X})", d);
-                    break;
-                }
-                break;
-            case 1:
-                // 16-bit load immediate/add
-                if (q == 0)
-                {
-                    // LD rp[p], nn
-                    nn = read_word();
-                    *(_rp.at(p)) = nn;
-
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg1 = rp_str(p);
-                    _cur_instr.arg2 = fmt::format("{:04X}", nn);
-                }
-                else
-                {
-                    // ADD HL, rp[p]
-                    nnnn = _registers.HL + *(_rp.at(p));
-                    _registers.flags.c = nnnn > 0xFF;
-                    set_half_carry_flag_add8(_registers.HL, *(_rp.at(p)));
-                    _registers.flags.n = false;
-                    _registers.HL = (uint16_t)nnnn;
-
-                    _cur_instr.name = "ADD";
-                    _cur_instr.arg1 = "HL";
-                    _cur_instr.arg2 = rp_str(p);
-                }
-                break;
-            case 2:
-                // Indirect loading
-                if (q == 0)
-                {
-                    _cur_instr.name = "LD"; 
-                    _cur_instr.arg2 = "A";
-
-                    switch (p)
+                    // Relative jumps and assorted ops
+                    switch (y)
                     {
                     case 0:
-                        // LD (BC),A
-                        write(_registers.BC, _registers.A);
-                        _cur_instr.arg1 = "(BC)";
+                        // NOP
+                        res.name = OP::NOP;
                         break;
                     case 1:
-                        // LD (DE),A
-                        write(_registers.DE, _registers.A);
-                        _cur_instr.arg1 = "(DE)";
+                        // LD (nn), SP
+                        res.name = OP::LD;
+                        res.args[0] = { nn, true };
+                        res.args[1] = { SP, false };
                         break;
                     case 2:
-                        // LD (HL+),A
-                        write(_registers.HL++, _registers.A);
-                        _cur_instr.arg1 = "(HL+)";
+                        // STOP
+                        res.name = OP::STOP;
                         break;
                     case 3:
-                        // LD (HL-),A
-                        write(_registers.HL--, _registers.A);
-                        _cur_instr.arg1 = "(HL-)";
+                        // JR d
+                        res.name = OP::JR;
+                        break;
+                    case 4:
+                    case 5:
+                    case 6:
+                    case 7:
+                        res.name = OP::JR_CC;
                         break;
                     }
-                }
-                else
-                {
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg1 = "A";
-
-                    switch (p)
-                    {
-                    case 0:
-                        // LD A, (BC)
-                        _registers.A = read(_registers.BC);
-                        _cur_instr.arg2 = "(BC)";
-                        break;
-                    case 1:
-                        // LD A, (DE)
-                        _registers.A = read(_registers.DE);
-                        _cur_instr.arg2 = "(DE)";
-                        break;
-                    case 2:
-                        // LD A, (HL+)
-                        _registers.A = read(_registers.HL++);
-                        _cur_instr.arg2 = "(HL+)";
-                        break;
-                    case 3:
-                        // LD A, (HL-)
-                        _registers.A = read(_registers.HL--);
-                        _cur_instr.arg2 = "(HL-)";
-                        break;
-                    }
-                }
-                break;
-            case 3:
-                // 16-bit INC/DEC
-                _cur_instr.arg1 = rp_str(p);
-                if (q == 0)
-                {
-                    // INC rp[p]
-                    ++(*(_rp.at(p)));
-                    _cur_instr.name = "INC";
-                }
-                else
-                {
-                    // DEC rp[p]
-                    --(*(_rp.at(p)));
-                    _cur_instr.name = "DEC";
-                }
-                break;
-            case 4:
-                // 8-bit INC
-                // INC r[y]
-                n = r(y) + 1;
-                _registers.flags.z = (n == 0);
-                _registers.flags.n = false;
-                set_half_carry_flag_add8(r(y), 1);
-                r(y) = n;
-
-                _cur_instr.name = "INC";
-                _cur_instr.arg1 = r_str(y);
-                break;
-            case 5:
-                // 8-bit DEC
-                // DEC r[y]
-                n = r(y);
-                --(r(y));
-                _registers.flags.z = (r(y) == 0);
-                set_half_carry_flag_sub(n, r(y));
-                _registers.flags.n = true;
-
-                _cur_instr.name = "DEC";
-                _cur_instr.arg1 = r_str(y);
-                break;
-            case 6:
-                // 8-bit load immediate
-                // LD r[y], n
-                n = read_byte();
-                r(y) = n;
-
-                _cur_instr.name = "LD";
-                _cur_instr.arg1 = r_str(y);
-                _cur_instr.arg2 = fmt::format("{:02X}", n);
-                break;
-            case 7:
-                // Assorted operations on accumulator/flags
-                switch (y)
-                {
-                case 0:
-                    // RLCA
-                    RLC(_registers.A);
-                    _registers.flags.z = false;
-
-                    _cur_instr.name = "RLCA";
                     break;
                 case 1:
-                    // RRCA
-                    RRC(_registers.A);
-                    _registers.flags.z = false;
-
-                    _cur_instr.name = "RRC";
+                    // 16-bit load immediate/add
+                    if (q)
+                    {
+                        // ADD HL, rp[p]
+                        res.name = OP::ADD_16;
+                        res.args[0] = { HL, false };
+                        res.args[1] = m_rp.at(p);
+                    }
+                    else
+                    {
+                        // LD rp[p], nn
+                        res.name = OP::LD;
+                        res.args[0] = m_rp.at(p);
+                        res.args[1] = { nn, false };
+                    }
                     break;
                 case 2:
-                    // RLA
-                    RL(_registers.A);
-                    _registers.flags.z = false;
-
-                    _cur_instr.name = "RLA";
-                    break;
-                case 3:
-                    // RRA
-                    RR(_registers.A);
-                    _registers.flags.z = false;
-
-                    _cur_instr.name = "RRA";
-                    break;
-                case 4:
-                { // DAA
-                    n = _registers.A;
-
-                    if (_registers.flags.n)
+                    // Indirect loading
+                    res.name = OP::LD;
+                    if (q)
                     {
-                        if (_registers.flags.h)
+                        res.args[0] = { A, false };
+                        switch (p)
                         {
-                            n -= 0x06;
-                        }
-
-                        if (_registers.flags.c)
-                        {
-                            n -= 0x60;
+                        case 0:
+                            // LD A, (BC)
+                            res.args[1] = { BC, true };
+                            break;
+                        case 1:
+                            // LD A, (DE)
+                            res.args[1] = { DE, true };
+                            break;
+                        case 2:
+                            // LD A, (HL+)
+                            res.args[1] = { HL_inc, true };
+                            break;
+                        case 3:
+                            // LD A, (HL-)
+                            res.args[1] = { HL_dec, true };
+                            break;
                         }
                     }
                     else
                     {
-                        if (_registers.flags.h || (n & 0x0F) > 0x09)
+                        res.args[1] = { A, false };
+                        switch (p)
                         {
-                            n += 0x06;
-                        }
-
-                        if (_registers.flags.c || n > 0x99)
-                        {
-                            n += 0x60;
-                            _registers.flags.c = true;
+                        case 0:
+                            // LD (BC),A
+                            res.args[0] = { BC, true };
+                            break;
+                        case 1:
+                            // LD (DE),A
+                            res.args[0] = { DE, true };
+                            break;
+                        case 2:
+                            // LD (HL+),A
+                            res.args[0] = { HL_inc, true };
+                            break;
+                        case 3:
+                            // LD (HL-),A
+                            res.args[0] = { HL_dec, true };
+                            break;
                         }
                     }
-
-                    _registers.flags.z = (n == 0);
-                    _registers.flags.h = 0;
-
-                    _registers.A = n;
-
-                    _cur_instr.name = "DAA";
-                }
-                break;
-                case 5:
-                    // CPL
-                    _registers.flags.h = true;
-                    _registers.flags.n = true;
-                    _registers.A ^= 0xFF;
-
-                    _cur_instr.name = "CPL";
                     break;
-                case 6:
-                    // SCF
-                    _registers.flags.h = false;
-                    _registers.flags.n = false;
-                    _registers.flags.c = true;
-
-                    _cur_instr.name = "SCF";
-                    break;
-                case 7:
-                    // CCF
-                    _registers.flags.h = false;
-                    _registers.flags.n = false;
-                    _registers.flags.c ^= 0x01;
-
-                    _cur_instr.name = "CCF";
-                    break;
-                }
-                break;
-            }
-            break;
-        case 1:
-            if (z == 6 && y == 6)
-            {
-                // Exception (replaces LD (HL), (HL))
-                // HALT
-                _cur_instr.name = "HALT";
-            }
-            else
-            {
-                // 8-bit loading
-                // LD r[y], r[z]
-                r(y) = r(z);
-
-                _cur_instr.name = "LD";
-                _cur_instr.arg1 = r_str(y);
-                _cur_instr.arg2 = r_str(z);
-            }
-            break;
-        case 2:
-            // Operate on accumulator and register/memory location
-            // alu[y] r[z]
-            ALU(y, r(z));
-
-            _cur_instr.arg2 = r_str(z);
-            break;
-        case 3:
-            switch (z)
-            {
-            case 0:
-                // Conditional return, mem-mapped register loads and stack operations
-                switch (y)
-                {
-                case 0:
-                case 1:
-                case 2:
                 case 3:
-                    // RET cc[y]
-                    if (CC(y))
-                    {
-                        RET();
-                    }
-
-                    _cur_instr.name = "RET";
-                    _cur_instr.arg1 = CC_str(y);
+                    // 16-bit INC/DEC
+                    // INC rp[p]
+                    // DEC rp[p]
+                    res.name = q ? OP::DEC : OP::INC;
+                    res.args[0] = m_rp.at(p);
                     break;
                 case 4:
-                    // LD (0xFF00 + n), A
-                    n = read_byte();
-                    write(0xFF00 + n, _registers.A);
-
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg1 = fmt::format("(0xFF00 + {:02X})", n);
-                    _cur_instr.arg2 = "A";
+                    // 8-bit INC
+                    // INC r[y]
+                    res.name = OP::INC;
+                    res.args[0] = m_r.at(y);
                     break;
                 case 5:
-                    // ADD SP, d
-                    d = read_byte();
-                    nnnn = _registers.SP + d;
-
-                    _registers.flags.z = false;
-                    _registers.flags.n = false;
-                    set_half_carry_flag_add8(_registers.SP, d);
-                    _registers.flags.c = ((_registers.SP & 0xFF) + d) >= 0x100;
-
-                    _registers.SP = (uint16_t)nnnn;
-
-                    _cur_instr.name = "ADD";
-                    _cur_instr.arg1 = "SP";
-                    _cur_instr.arg2 = fmt::format("{:02X}", d);
+                    // 8-bit DEC
+                    // DEC r[y]
+                    res.name = OP::DEC;
+                    res.args[0] = m_r.at(y);
                     break;
                 case 6:
-                    // LD A, (0xFF00 + n)
-                    n = read_byte();
-                    _registers.A = read(0xFF00 + n);
-
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg1 = "A";
-                    _cur_instr.arg2 = fmt::format("(0xFF00 + {:02X})", n);
+                    // 8-bit load immediate
+                    // LD r[y], n
+                    res.name = OP::LD;
+                    res.args[0] = m_r.at(y);
+                    res.args[1] = { n, false };
                     break;
                 case 7:
-                    // LD HL, SP + d
-                    d = read_byte();
-                    nnnn = _registers.SP + d;
-
-                    _registers.flags.z = false;
-                    _registers.flags.n = false;
-                    set_half_carry_flag_add8(_registers.SP, d);
-                    _registers.flags.c = ((_registers.SP & 0xFF) + d) >= 0x100;
-
-                    _registers.HL = (uint16_t)nnnn;
-
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg1 = "HL";
-                    _cur_instr.arg2 = fmt::format("(SP + {:02X})", d);
+                    // Assorted operations on accumulator/flags
+                    res.args[0] = { A, false };
+                    switch (y)
+                    {
+                    case 0:
+                        // RLCA
+                        res.name = OP::RLCA;
+                        break;
+                    case 1:
+                        // RRCA
+                        res.name = OP::RRCA;
+                        break;
+                    case 2:
+                        // RLA
+                        res.name = OP::RLA;
+                        break;
+                    case 3:
+                        // RRA
+                        res.name = OP::RRA;
+                        break;
+                    case 4:
+                        res.name = OP::DAA;
+                        break;
+                    case 5:
+                        res.name = OP::CPL;
+                        break;
+                    case 6:
+                        res.name = OP::SCF;
+                        break;
+                    case 7:
+                        res.name = OP::CCF;
+                        break;
+                    }
                     break;
                 }
                 break;
             case 1:
-                // POP & various ops
-                if (q == 0)
+                if (z == 6 && y == 6)
                 {
-                    // POP rp2[p]
-                    n = read(_registers.SP++);
-                    *(_rp2.at(p)) = combine(n, read(_registers.SP++));
-                    if (p == 3)
-                    {
-                        _registers.F &= 0xF0;
-                    }
-                    
-                    _cur_instr.name = "POP";
-                    _cur_instr.arg1 = rp2_str(p);
+                    res.name = OP::HALT;
                 }
                 else
                 {
-                    switch (p)
-                    {
-                    case 0:
-                        // RET
-                        RET();
-                        _cur_instr.name = "RET";
-                        break;
-                    case 1:
-                        // RETI
-                        RET();
-                        _cur_instr.name = "RETI";
-                        _ime = true;
-                        break;
-                    case 2:
-                        // JP HL
-                        JUMP(_registers.HL);
-                        _cur_instr.name = "JP";
-                        _cur_instr.arg1 = "HL";
-                        break;
-                    case 3:
-                        // LD SP, HL
-                        _registers.HL = _registers.SP;
-                        _cur_instr.name = "LD";
-                        _cur_instr.arg1 = "SP";
-                        _cur_instr.arg2 = "HL";
-                        break;
-                    }
+                    // 8-bit loading
+                    // LD r[y], r[z]
+                    res.name = OP::LD;
+                    res.args[0] = m_r.at(y);
+                    res.args[1] = m_r.at(z);
                 }
                 break;
             case 2:
-                // Conditional jump
-                switch (y)
-                {
-                case 0:
-                case 1:
-                case 2:
-                case 3:
-                    // JP cc[y], nn
-                    nn = read_word();
-                    if (CC(y))
-                    {
-                        JUMP(nn);
-                    }
-                    _cur_instr.name = "JP";
-                    _cur_instr.arg1 = CC_str(y);
-                    _cur_instr.arg2 = fmt::format("{:04X}", nn);
-                case 4:
-                    // LD (0xFF00+C), A
-                    write(0xFF00 + _registers.C, _registers.A);
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg1 = "(0xFF00+C)";
-                    _cur_instr.arg2 = "A";
-                    break;
-                case 5:
-                    // LD (nn), A
-                    nn = read_word();
-                    write(nn, _registers.A);
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg1 = fmt::format("({:04X})", nn);
-                    _cur_instr.arg2 = "A";
-                    break;
-                case 6:
-                    // LD A, (0xFF00+C)
-                    _registers.A = read(0xFF00 + _registers.C);
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg2 = "(0xFF00+C)";
-                    _cur_instr.arg1 = "A";
-                    break;
-                case 7:
-                    // LD A, (nn)
-                    nn = read_word();
-                    _registers.A = read(nn);
-                    _cur_instr.name = "LD";
-                    _cur_instr.arg2 = fmt::format("({:04X})", nn);
-                    _cur_instr.arg1 = "A";
-                    break;
-                }
+                // Operate on accumulator and register/memory location
+                // alu[y] r[z]
+                res.name = OP::ALU;
+                res.args[0] = m_r.at(z);
                 break;
             case 3:
-                // assorted operations
-                switch (y)
+                switch (z)
                 {
                 case 0:
-                    // JP nn
-                    nn = read_word();
-                    JUMP(nn);
-                    _cur_instr.name = "JP";
-                    _cur_instr.arg1 = fmt::format("({:04X})", nn);
+                    // Conditional return, 
+                    // mem-mapped register loads and stack operations
+                    switch (y)
+                    {
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                        // RET cc[y]
+                        res.name = OP::RET_CC;
+                        break;
+                    case 4:
+                        // LD (0xFF00 + n), A
+                        res.name = OP::LD;
+                        res.args[0] = { n, true };
+                        res.args[1] = { A, false };
+                        break;
+                    case 5:
+                        // ADD SP, d
+                        res.name = OP::ADD_16;
+                        res.args[0] = { SP, false };
+                        break;
+                    case 6:
+                        // LD A, (0xFF00 + n)
+                        res.name = OP::LD;
+                        res.args[0] = { A, false };
+                        res.args[1] = { n, true };
+                        break;
+                    case 7:
+                        // LD HL, SP + d
+                        res.name = OP::LD;
+                        res.args[0] = { HL, false };
+                        res.args[1] = { SP_d, false };
+                        break;
+                    }
+                    break;
+                case 1:
+                    // POP & various ops
+                    if (q)
+                    {
+                        switch (p)
+                        {
+                        case 0:
+                            // RET
+                            res.name = OP::RET;
+                            break;
+                        case 1:
+                            // RETI
+                            res.name = OP::RETI;
+                            break;
+                        case 2:
+                            // JP HL
+                            res.name = OP::JP;
+                            res.args[0] = { HL, false };
+                            break;
+                        case 3:
+                            // LD SP, HL
+                            res.name = OP::LD;
+                            res.args[0] = { SP, false };
+                            res.args[1] = { HL, false };
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // POP rp2[p]
+                        res.name = OP::POP;
+                        res.args[0] = m_rp2.at(p);
+                    }
+                    break;
+                case 2:
+                    // Conditional jump
+                    switch (y)
+                    {
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                        // JP cc[y], nn
+                        res.name = OP::JP_CC;
+                        res.args[0] = { nn, false };
+                        break;
+                    case 4:
+                        // LD (0xFF00+C), A
+                        res.name = OP::LD;
+                        res.args[0] = { C, true };
+                        res.args[1] = { A, false };
+                        break;
+                    case 5:
+                        // LD (nn), A
+                        res.name = OP::LD;
+                        res.args[0] = { nn, true };
+                        res.args[1] = { A, false };
+                        break;
+                    case 6:
+                        // LD A, (0xFF00+C)
+                        res.name = OP::LD;
+                        res.args[0] = { A, false };
+                        res.args[1] = { C, true };
+                        break;
+                    case 7:
+                        // LD A, (nn)
+                        res.name = OP::LD;
+                        res.args[0] = { A, false };
+                        res.args[1] = { nn, true };
+                        break;
+                    }
+                    break;
+                case 3:
+                    // assorted operations
+                    switch (y)
+                    {
+                    case 0:
+                        // JP nn
+                        res.name = OP::JP;
+                        res.args[0] = { nn, false };
+                        break;
+                    case 6:
+                        // DI
+                        res.name = OP::DI;
+                        break;
+                    case 7:
+                        // EI
+                        res.name = OP::EI;
+                        break;
+                    default:
+                        // Illegal OP
+                        break;
+                    }
+                    break;
+                case 4:
+                    // Conditional call
+                    // CALL cc[y], nn
+                    res.name = OP::CALL_CC;
+                    break;
+                case 5:
+                    // PUSH & various ops
+                    if (q)
+                    {
+                        res.name = OP::CALL;
+                    }
+                    else
+                    {
+                        res.name = OP::PUSH;
+                        res.args[0] = m_rp2.at(p);
+                    }
                     break;
                 case 6:
-                    // DI
-                    _ime = false;
-                    _cur_instr.name = "DI";
+                    res.name = OP::ALU;
+                    res.args[0] = { n, false };
                     break;
                 case 7:
-                    // EI
-                    _ime = true;
-                    _cur_instr.name = "EI";
+                    res.name = OP::RST;
                     break;
                 }
                 break;
-            case 4:
-                // Conditional call
-                // CALL cc[y], nn
-                nn = read_word();
-                if (CC(y))
-                {
-                    CALL(nn);
-                }
-                _cur_instr.name = "CALL";
-                _cur_instr.arg1 = CC_str(y);
-                _cur_instr.arg2 = fmt::format("({:04X})", nn);
-                break;
-            case 5:
-                // PUSH & various ops
-                if (q == 0)
-                {
-                    // PUSH rp2[p]
-                    nn = *(_rp2.at(p));
-                    _registers.SP -= 2;
-
-                    write(_registers.SP, LSB(nn));
-                    write(_registers.SP + 1, MSB(nn));
-
-                    _cur_instr.name = "PUSH";
-                    _cur_instr.arg1 = rp2_str(p);
-                }
-                else
-                {
-                    if (p == 0)
-                    {
-                        // CALL nn
-                        nn = read_word();
-                        CALL(nn);
-
-                        _cur_instr.name = "CALL";
-                        _cur_instr.arg1 = fmt::format("({:04X})", nn);
-                    }
-                }
-                break;
-            case 6:
-                // alu[y] n
-                n = read_byte();
-                ALU(y, n);
-                _cur_instr.arg1 = fmt::format("({:02X})", n);
-                break;
-            case 7:
-                // Restart
-                // RST y*8
-                nn = y * 8;
-                CALL(nn);
-                _cur_instr.name = "RST";
-                _cur_instr.arg1 = fmt::format("({:04X})", nn);
-                break;
             }
+        }
+
+        return res;
+    }
+
+    void SM83::m_execute(OP instr)
+    {
+        uint8_t y = instr.y;
+        auto arg1 = instr.args[0];
+
+        switch (instr.name)
+        {
+        case OP::ALU:
+            m_alu.at(y)(m_get_value(arg1));
+            break;
+        case OP::ADD_16:
+            m_add_16(instr.args[0], instr.args[1]);
+            break;
+        case OP::BIT:
+            m_bit(m_get_value(arg1), y);
+            break;
+        case OP::RES:
+        {
+            auto p = std::get<uint8_t*>(m_get_ptr(arg1));
+            if (p)
+            {
+                m_res(*p, y);
+            }
+        }
+        break;
+        case OP::SET:
+        {
+            auto p = std::get<uint8_t*>(m_get_ptr(arg1));
+            if (p)
+            {
+                m_set(*p, y);
+            }
+        }
+        break;
+        case OP::NOP:
+            break;
+        case OP::CALL:
+            m_call();
+            break;
+        case OP::CALL_CC:
+            m_call(m_cc.at(y));
+            break;
+        case OP::CPL:
+            m_cpl();
+            break;
+        case OP::SCF:
+            m_scf();
+            break;
+        case OP::CCF:
+            m_ccf();
+            break;
+        case OP::ROT:
+        {
+            auto p = std::get<uint8_t*>(m_get_ptr(arg1));
+            if (p)
+            {
+                m_rot.at(y)(*p);
+            }
+        }
+        break;
+        case OP::DEC:
+            m_dec(m_get_ptr(arg1));
+            break;
+        case OP::INC:
+            m_inc(m_get_ptr(arg1));
+            break;
+        case OP::DI:
+            m_ime = false;
+            break;
+        case OP::EI:
+            m_ime = true;
+            break;
+        case OP::HALT:
+            m_halt();
+            break;
+        case OP::JP:
+            m_jp();
+            break;
+        case OP::JP_CC:
+            m_jp(m_cc.at(y));
+            break;
+        case OP::JR:
+            m_jr();
+            break;
+        case OP::JR_CC:
+            m_jr(m_cc.at(y - 4));
+            break;
+        case OP::LD:
+            m_ld(instr.args[0], instr.args[1]);
+            break;
+        case OP::POP:
+        {
+            auto p = std::get<uint16_t*>(m_get_ptr(arg1));
+            if (p)
+            {
+                m_pop(*p);
+            }
+        }
+        break;
+        case OP::PUSH:
+            m_push(m_get_value(arg1));
+            break;
+        case OP::RET:
+            m_ret();
+            break;
+        case OP::RET_CC:
+            m_ret(m_cc.at(y));
+            break;
+        case OP::RETI:
+            m_reti();
+            break;
+        case OP::RLA:
+            m_rla();
+            break;
+        case OP::RLCA:
+            m_rlca();
+            break;
+        case OP::RRA:
+            m_rra();
+            break;
+        case OP::RRCA:
+            m_rrca();
+            break;
+        case OP::RST:
+            m_call(y * 8);
+            break;
+        case OP::STOP:
+            m_stop();
             break;
         }
     }
 
-    uint8_t SM83::read_byte()
+    uint8_t SM83::m_fetch()
     {
-        return read(_registers.PC++);
+        return m_read(m_registers.PC++);
     }
 
-    uint16_t SM83::read_word()
+    uint16_t SM83::m_fetch_word()
     {
-        auto lsb = read_byte();
-        auto msb = read_byte();
+        auto lsb = m_fetch();
+        auto msb = m_fetch();
 
         return combine(lsb, msb);
     }
 
-    uint8_t SM83::read(uint16_t adr)
+    uint8_t SM83::m_read(uint16_t adr)
     {
-        _timer->advance_cycle();
-        return _mmu->read(adr);
+        m_advance_cycle();
+        return m_mmu->read(adr);
     }
 
-    void SM83::write(uint16_t adr, uint8_t v)
+    void SM83::m_write(uint16_t adr, uint8_t v)
     {
-        _timer->advance_cycle();
-        _mmu->write(adr, v);
+        m_advance_cycle();
+        m_mmu->write(adr, v);
     }
 
-    void SM83::write(uint16_t adr, uint16_t v)
+    void SM83::m_write(uint16_t adr, uint16_t v)
     {
-        auto lsb = LSB(v);
-        auto msb = MSB(v);
-
-        write(adr, lsb);
-        write(adr + 1, msb);
+        m_write(adr, LSB(v));
+        m_write(adr + 1, MSB(v));
     }
 
-    void SM83::set_half_carry_flag_sub(uint8_t old_value, uint8_t new_value)
+    bool SM83::m_nz()
     {
-        _registers.flags.h = ((old_value & 0x0F) - (new_value & 0x0F)) < 0;
+        return !m_registers.flags.z;
     }
 
-    void SM83::set_half_carry_flag_add8(uint8_t value1, uint8_t value2)
+    bool SM83::m_z()
     {
-        _registers.flags.h = ((value1 & 0x0F) + (value2 & 0x0F)) >= 0x10;
+        return m_registers.flags.z;
     }
 
-    void SM83::set_half_carry_flag_add16(uint8_t value1, uint8_t value2)
+    bool SM83::m_nc()
     {
-        _registers.flags.h = ((value1 & 0x0FFF) + (value2 & 0x0FFF)) >= 0x1000;
+        return !m_registers.flags.c;
     }
 
-    bool SM83::NZ()
+    bool SM83::m_c()
     {
-        return !_registers.flags.z;
+        return m_registers.flags.c;
     }
 
-    bool SM83::Z()
+    void SM83::m_ld(reg_s lv, reg_s rv)
     {
-        return _registers.flags.z;
+        auto arg1 = m_get_ptr(lv);
+        auto arg2 = m_get_value(rv);;
+
+        std::visit(overload
+            {
+                [arg2](auto* l)
+                {
+                    *l = arg2;
+                },
+            }, arg1);
     }
 
-    bool SM83::NC()
+    void SM83::m_dec(reg_ptr v)
     {
-        return !_registers.flags.c;
+        std::visit(overload
+            {
+                [](uint16_t* arg) { --(*arg); },
+                [this](uint8_t* arg)
+                {
+                    auto old = (*arg)--;
+                    m_registers.flags.n = true;
+                    m_registers.flags.z = (*arg == 0);
+                    m_registers.flags.h = ((old & 0x0F) - (*arg & 0x0F)) < 0;
+                },
+            }, v);
     }
 
-    bool SM83::C()
+    void SM83::m_inc(reg_ptr v)
     {
-        return _registers.flags.c;
+        std::visit(overload
+            {
+                [](uint16_t* arg) { ++(*arg); },
+                [this](uint8_t* arg)
+                {
+                    auto old = (*arg)++;
+                    m_registers.flags.n = false;
+                    m_registers.flags.z = (*arg == 0);
+                    m_registers.flags.h = ((old & 0x0F) + (*arg & 0x0F)) >= 0x10;
+                },
+            }, v);
     }
 
-    void SM83::ADD(uint8_t v)
+    void SM83::m_add(uint8_t v)
     {
-        uint16_t tmp = _registers.A + v;
+        uint16_t tmp = m_registers.A + v;
 
-        _registers.flags.z = ((tmp & 0xFF) == 0);
-        _registers.flags.n = false;
-        set_half_carry_flag_add8(_registers.A, v);
-        _registers.flags.c = (tmp > 0xFF);
+        m_registers.flags.z = ((tmp & 0xFF) == 0);
+        m_registers.flags.n = false;
+        m_registers.flags.h = ((m_registers.A & 0x0F) + (v & 0x0F)) >= 0x10;
+        m_registers.flags.c = (tmp > 0xFF);
 
-        _registers.A = (uint8_t)tmp;
-
-        _cur_instr.name = "ADD";
-    }
-   
-    void SM83::ADC(uint8_t v)
-    {
-        uint16_t tmp = _registers.A + v + _registers.flags.c;
-
-        _registers.flags.z = ((tmp & 0xFF) == 0);
-        _registers.flags.n = false;
-        set_half_carry_flag_add8(_registers.A, v + _registers.flags.c);
-        _registers.flags.c = (tmp > 0xFF);
-
-        _registers.A = (uint8_t)tmp;
-
-        _cur_instr.name = "ADC";
+        m_registers.A = (uint8_t)tmp;
     }
 
-    void SM83::SUB(uint8_t v)
+    void SM83::m_add_16(reg_s lv, reg_s rv)
     {
-        int16_t tmp = _registers.A - v;
-
-        _registers.flags.z = ((tmp & 0xFF) == 0);
-        _registers.flags.n = true;
-        set_half_carry_flag_sub(_registers.A, tmp);
-        _registers.flags.c = tmp < 0;
-
-        _registers.A = (uint8_t)tmp;
-
-        _cur_instr.name = "SUB";
+        if (lv.name == SP)
+        {
+            int8_t d = m_fetch();
+            m_registers.SP += d;
+        }
+        else if (lv.name == HL)
+        {
+            auto v = m_get_value(rv);
+            m_registers.HL += v;
+        }
     }
 
-    void SM83::SBC(uint8_t v)
+    void SM83::m_adc(uint8_t v)
     {
-        int16_t tmp = _registers.A - v - _registers.flags.c;
+        uint16_t tmp = m_registers.A + v + m_registers.flags.c;
 
-        _registers.flags.z = ((tmp & 0xFF) == 0);
-        _registers.flags.n = true;
-        set_half_carry_flag_sub(_registers.A, tmp);
-        _registers.flags.c = tmp < 0;
+        m_registers.flags.z = ((tmp & 0xFF) == 0);
+        m_registers.flags.n = false;
+        m_registers.flags.h = ((m_registers.A & 0x0F) + ((v + m_registers.flags.c) & 0x0F)) >= 0x10;
+        m_registers.flags.c = (tmp > 0xFF);
 
-        _registers.A = (uint8_t)tmp;
-
-        _cur_instr.name = "SBC";
+        m_registers.A = (uint8_t)tmp;
     }
 
-    void SM83::AND(uint8_t v)
+    void SM83::m_sub(uint8_t v)
     {
-        _registers.A &= v;
+        int16_t tmp = m_registers.A - v;
 
-        _registers.flags.z = _registers.A == 0;
-        _registers.flags.n = false;
-        _registers.flags.h = true;
-        _registers.flags.c = false;
+        m_registers.flags.z = ((tmp & 0xFF) == 0);
+        m_registers.flags.n = true;
+        m_registers.flags.h = ((m_registers.A & 0x0F) - (tmp & 0x0F)) < 0;
+        m_registers.flags.c = tmp < 0;
 
-        _cur_instr.name = "AND";
+        m_registers.A = (uint8_t)tmp;
     }
 
-    void SM83::XOR(uint8_t v)
+    void SM83::m_sbc(uint8_t v)
     {
-        _registers.A ^= v;
+        int16_t tmp = m_registers.A - v - m_registers.flags.c;
 
-        _registers.flags.z = _registers.A == 0;
-        _registers.flags.n = false;
-        _registers.flags.h = false;
-        _registers.flags.c = false;
+        m_registers.flags.z = ((tmp & 0xFF) == 0);
+        m_registers.flags.n = true;
+        m_registers.flags.h = ((m_registers.A & 0x0F) - (tmp & 0x0F)) < 0;
+        m_registers.flags.c = tmp < 0;
 
-        _cur_instr.name = "XOR";
+        m_registers.A = (uint8_t)tmp;
     }
 
-    void SM83::OR(uint8_t v)
+    void SM83::m_and(uint8_t v)
     {
-        _registers.A |= v;
+        m_registers.A &= v;
 
-        _registers.flags.z = _registers.A == 0;
-        _registers.flags.n = false;
-        _registers.flags.h = false;
-        _registers.flags.c = false;
-
-        _cur_instr.name = "OR";
+        m_registers.flags.z = (m_registers.A == 0);
+        m_registers.flags.n = false;
+        m_registers.flags.h = true;
+        m_registers.flags.c = false;
     }
 
-    void SM83::CP(uint8_t v)
+    void SM83::m_xor(uint8_t v)
     {
-        int16_t tmp = _registers.A - v;
+        m_registers.A ^= v;
 
-        _registers.flags.z = (tmp & (0x00FF)) == 0;
-        _registers.flags.n = true;
-        set_half_carry_flag_sub(_registers.A, tmp);
-        _registers.flags.c = tmp < 0;
-
-        _cur_instr.name = "CP";
+        m_registers.flags.z = (m_registers.A == 0);
+        m_registers.flags.n = false;
+        m_registers.flags.h = false;
+        m_registers.flags.c = false;
     }
 
-    void SM83::CALL(uint16_t adr)
+    void SM83::m_or(uint8_t v)
     {
-        _registers.SP -= 2;
-        write(_registers.SP, LSB(_registers.PC));
-        write(_registers.SP + 1, MSB(_registers.PC));
-        JUMP(adr);
+        m_registers.A |= v;
+
+        m_registers.flags.z = (m_registers.A == 0);
+        m_registers.flags.n = false;
+        m_registers.flags.h = false;
+        m_registers.flags.c = false;
     }
 
-    void SM83::JUMP(uint16_t adr)
+    void SM83::m_cp(uint8_t v)
     {
-        _registers.PC = adr;
+        int16_t tmp = m_registers.A - v;
+
+        m_registers.flags.z = (tmp & (0x00FF)) == 0;
+        m_registers.flags.n = true;
+        m_registers.flags.h = ((m_registers.A & 0x0F) - (tmp & 0x0F)) < 0;
+        m_registers.flags.c = tmp < 0;
     }
 
-    void SM83::RET()
+    void SM83::m_cpl()
     {
-        auto lsb = read(_registers.SP);
-        auto msb = read(_registers.SP + 1);
+        m_registers.flags.h = true;
+        m_registers.flags.n = true;
+        m_registers.A ^= 0xFF;
+    }
 
+    void SM83::m_scf()
+    {
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
+        m_registers.flags.c = true;
+    }
+
+    void SM83::m_ccf()
+    {
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
+        m_registers.flags.c ^= 0x01;
+    }
+
+    void SM83::m_daa()
+    {
+        uint8_t n = m_registers.A;
+
+        if (m_registers.flags.n)
+        {
+            if (m_registers.flags.h)
+            {
+                n -= 0x06;
+            }
+
+            if (m_registers.flags.c)
+            {
+                n -= 0x60;
+            }
+        }
+        else
+        {
+            if (m_registers.flags.h || (n & 0x0F) > 0x09)
+            {
+                n += 0x06;
+            }
+
+            if (m_registers.flags.c || n > 0x99)
+            {
+                n += 0x60;
+                m_registers.flags.c = true;
+            }
+        }
+
+        m_registers.flags.z = (n == 0);
+        m_registers.flags.h = 0;
+
+        m_registers.A = n;
+    }
+
+    void SM83::m_call(uint16_t adr)
+    {
+        m_registers.SP -= 2;
+        m_write(m_registers.SP, LSB(m_registers.PC));
+        m_write(m_registers.SP + 1, MSB(m_registers.PC));
+        m_jump(adr);
+    }
+
+    void SM83::m_call(std::function<bool(void)> cond)
+    {
+        m_registers.SP -= 2;
+        m_write(m_registers.SP, LSB(m_registers.PC));
+        m_write(m_registers.SP + 1, MSB(m_registers.PC));
+        if (!cond || cond())
+        {
+            m_jp();
+        }
+    }
+
+    void SM83::m_jump(uint16_t adr)
+    {
+        m_registers.PC = adr;
+    }
+
+    void SM83::m_jp(std::function<bool(void)> cond)
+    {
+        uint16_t nn = m_fetch_word();
+        if (!cond || cond())
+        {
+            m_jump(nn);
+        }
+    }
+
+    void SM83::m_jr(std::function<bool(void)> cond)
+    {
+        int8_t d = m_fetch();
+        if (!cond || cond())
+        {
+            m_jump(m_registers.PC + d);
+        }
+    }
+
+    void SM83::m_ret(std::function<bool(void)> cond)
+    {
+        auto lsb = m_read(m_registers.SP);
+        auto msb = m_read(m_registers.SP + 1);
         auto adr = combine(lsb, msb);
 
-        JUMP(adr);
-        _registers.SP += 2;
+        if (!cond || cond())
+        {
+            m_registers.PC = adr;
+            m_registers.SP += 2;
+        }
     }
 
-    void SM83::RLC(uint8_t& v)
+    void SM83::m_reti()
     {
-        _registers.flags.h = false;
-        _registers.flags.n = false;
-        _registers.flags.c = v & 0x80;
+        m_ret();
+        m_ime = true;
+    }
+
+    void SM83::m_rlc(uint8_t& v)
+    {
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
+        m_registers.flags.c = (v & 0x80);
 
         v <<= 1;
-        v |= _registers.flags.c;
+        v |= m_registers.flags.c;
 
-        _registers.flags.z = v == 0;
-
-        _cur_instr.name = "RLC";
+        m_registers.flags.z = (v == 0);
     }
 
-    void SM83::RRC(uint8_t& v)
+    void SM83::m_rrc(uint8_t& v)
     {
-        _registers.flags.h = false;
-        _registers.flags.n = false;
-        _registers.flags.c = v & 0x01;
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
+        m_registers.flags.c = v & 0x01;
 
         v >>= 1;
-        v |= (_registers.flags.c << 8);
+        v |= (m_registers.flags.c << 8);
 
-        _registers.flags.z = v == 0;
-
-        _cur_instr.name = "RRC";
+        m_registers.flags.z = (v == 0);
     }
 
-    void SM83::RL(uint8_t& v)
+    void SM83::m_rl(uint8_t& v)
     {
-        uint8_t n = _registers.flags.c;
-        _registers.flags.h = false;
-        _registers.flags.n = false;
-        _registers.flags.c = (v & 0x80) == 0x80;
+        uint8_t n = m_registers.flags.c;
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
+        m_registers.flags.c = ((v & 0x80) == 0x80);
 
         v <<= 1;
         v |= n;
 
-        _registers.flags.z = (v == 0);
-
-        _cur_instr.name = "RL";
+        m_registers.flags.z = (v == 0);
     }
 
-    void SM83::RR(uint8_t& v)
+    void SM83::m_rr(uint8_t& v)
     {
-        uint8_t n = _registers.flags.c;
-        _registers.flags.h = false;
-        _registers.flags.n = false;
-        _registers.flags.c = v & 0x01;
+        uint8_t n = m_registers.flags.c;
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
+        m_registers.flags.c = (v & 0x01);
 
         v >>= 1;
         v |= (n << 8);
-        _registers.flags.z = v == 0;
 
-        _cur_instr.name = "RR";
+        m_registers.flags.z = (v == 0);
     }
 
-    void SM83::SLA(uint8_t& v)
+    void SM83::m_sla(uint8_t& v)
     {
-        _registers.flags.h = false;
-        _registers.flags.n = false;
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
         // TO FIX
-        _registers.flags.c = v & 0x80;
+        m_registers.flags.c = (v & 0x80);
         v <<= 1;
-        _registers.flags.z = v == 0;
-
-        _cur_instr.name = "SLA";
+        m_registers.flags.z = (v == 0);
     }
 
-    void SM83::SRA(uint8_t& v)
+    void SM83::m_sra(uint8_t& v)
     {
-        uint8_t b7 = v & 0x80;
-        _registers.flags.h = false;
-        _registers.flags.n = false;
-        _registers.flags.c = v & 0x01;
+        uint8_t b7 = (v & 0x80);
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
+        m_registers.flags.c = (v & 0x01);
+
         v >>= 1;
         v &= b7;
-        _registers.flags.z = (int8_t)v == 0;
 
-        _cur_instr.name = "SRA";
+        m_registers.flags.z = ((int8_t)v == 0);
     }
 
-    void SM83::SWAP(uint8_t& v)
+    void SM83::m_swap(uint8_t& v)
     {
         auto lsb = (v & 0x0F);
         auto msb = (v & 0xF0);
-        v = lsb | msb;
+        v = (lsb | msb);
 
-        _registers.flags.h = false;
-        _registers.flags.n = false;
-        _registers.flags.c = false;
-        _registers.flags.z = v == 0;
-
-        _cur_instr.name = "SWAP";
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
+        m_registers.flags.c = false;
+        m_registers.flags.z = (v == 0);
     }
 
-    void SM83::SRL(uint8_t& v)
+    void SM83::m_srl(uint8_t& v)
     {
-        _registers.flags.h = false;
-        _registers.flags.n = false;
-        _registers.flags.c = v & 0x01;
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
+        m_registers.flags.c = (v & 0x01);
         v >>= 1;
-        _registers.flags.z = v == 0;
+        m_registers.flags.z = (v == 0);
+    }
 
-        _cur_instr.name = "SRL";
+    void SM83::m_rla()
+    {
+        m_registers.flags.z = false;
+        m_rl(m_registers.A);
+    }
+
+    void SM83::m_rlca()
+    {
+        m_registers.flags.z = false;
+        m_rlc(m_registers.A);
+    }
+
+    void SM83::m_rra()
+    {
+        m_registers.flags.z = false;
+        m_rr(m_registers.A);
+    }
+
+    void SM83::m_rrca()
+    {
+        m_registers.flags.z = false;
+        m_rrc(m_registers.A);
+    }
+
+    void SM83::m_bit(uint8_t v, uint8_t i)
+    {
+        m_registers.flags.z = !is_set_bit(v, i);
+        m_registers.flags.n = false;
+        m_registers.flags.h = true;
+    }
+
+    void SM83::m_res(uint8_t& v, uint8_t i)
+    {
+        clear_bit(v, i);
+    }
+
+    void SM83::m_set(uint8_t& v, uint8_t i)
+    {
+        set_bit(v, i);
+    }
+
+    void SM83::m_pop(uint16_t& rp)
+    {
+        uint8_t n = m_read(m_registers.SP++);
+        rp = combine(n, m_read(m_registers.SP++));
+
+        if (&rp == &m_registers.AF)
+        {
+            m_registers.F &= 0xF0;
+        }
+    }
+
+    void SM83::m_push(uint16_t rp)
+    {
+        m_registers.SP -= 2;
+        // pre-dec has to be done in its own cycle
+        m_advance_cycle();
+        m_write(m_registers.SP, LSB(rp));
+        m_write(m_registers.SP + 1, MSB(rp));
     }
 
     std::string SM83::dump()
     {
         std::string res =
             fmt::format("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X}",
-            _registers.A, _registers.F, _registers.B, _registers.C, _registers.D, _registers.E,
-            _registers.H, _registers.L, _registers.SP, _registers.PC);
+                m_registers.A, m_registers.F, m_registers.B, m_registers.C, m_registers.D, m_registers.E,
+                m_registers.H, m_registers.L, m_registers.SP, m_registers.PC);
 
         for (int i = 0; i < 4; ++i)
         {
@@ -957,7 +1041,7 @@ namespace emulator
             {
                 res += fmt::format(" ");
             }
-            res += fmt::format("{:02X}", read(_registers.PC + i));
+            res += fmt::format("{:02X}", m_read(m_registers.PC + i));
         }
 
         res += fmt::format(")\n");
@@ -965,63 +1049,184 @@ namespace emulator
         return res;
     }
 
-    std::string SM83::print_dis()
+    std::string SM83::print_dis(OP op)
     {
-        return fmt::format("{} {},{}\n", _cur_instr.name, _cur_instr.arg1, _cur_instr.arg2);
+        return "";
+        //return fmt::format("{} {},{}\n", _cur_instr.name, _cur_instr.arg1, _cur_instr.arg2);
     }
 
-    void SM83::ALU(uint8_t y, uint8_t val)
+    reg_ptr SM83::m_get_ptr(reg_s r)
     {
-        _alu.at(y)(*this, val);
-    }
 
-    bool SM83::CC(uint8_t y)
-    {
-        return _cc.at(y)(*this);
-    }
-
-    std::string SM83::CC_str(int y)
-    {
-        switch (y)
+        switch (r.name)
         {
-        case 0:
-            return "NZ";
-        case 1:
-            return "Z";
-        case 2:
-            return "NC";
-        case 3:
-            return "C";
+        case A:
+            return &m_registers.A;
+        case B:
+            return &m_registers.B;
+        case C:
+            if (r.indirect)
+            {
+                return m_mmu->get_host_adr(0xFF00 + m_registers.C);
+            }
+            return &m_registers.C;
+        case D:
+            return &m_registers.D;
+        case E:
+            return &m_registers.E;
+        case H:
+            return &m_registers.H;
+        case L:
+            return &m_registers.L;
+        case AF:
+            return &m_registers.AF;
+        case BC:
+            return &m_registers.BC;
+        case DE:
+            return &m_registers.DE;
+        case HL:
+            if (r.indirect)
+            {
+                return m_mmu->get_host_adr(m_registers.HL);
+            }
+            return &m_registers.HL;
+        case HL_inc:
+            if (!r.indirect)
+            {
+                auto p = &m_registers.HL;
+                m_registers.HL++;
+                return p;
+
+            }
+            return m_mmu->get_host_adr(m_registers.HL++);
+        case HL_dec:
+            if (!r.indirect)
+            {
+                auto p = &m_registers.HL;
+                m_registers.HL--;
+                return p;
+            }
+            return m_mmu->get_host_adr(m_registers.HL--);
+        case SP:
+            return &m_registers.SP;
+        case n:
+            if (r.indirect)
+            {
+                return m_mmu->get_host_adr(0xFF00 + m_fetch());
+            }
+            break;
+        case nn:
+            if (r.indirect)
+            {
+                return  m_mmu->get_host_adr(m_fetch_word());
+            }
+            break;
+        default:
+            //fmt::print("m_get_reg: unknow reg : {}, {}", r.name, r.indirect);
+            exit(1);
         }
     }
 
-    std::string SM83::rp_str(int i)
+    uint16_t SM83::m_get_value(reg_s r)
     {
-        switch (i)
+        switch (r.name)
         {
-        case 0:
-            return "BC";
-        case 1:
-            return "DE";
-        case 2:
-            return "HL";
-        case 3:
-            return "SP";
+        case A:
+            return m_registers.A;
+        case B:
+            return m_registers.B;
+        case C:
+            if (r.indirect)
+            {
+                return m_mmu->read(0xFF00 + m_registers.C);
+            }
+            return m_registers.C;
+        case D:
+            return m_registers.D;
+        case E:
+            return m_registers.E;
+        case H:
+            return m_registers.H;
+        case L:
+            return m_registers.L;
+        case AF:
+            if (r.indirect)
+            {
+                return m_mmu->read(m_registers.AF);
+            }
+            return m_registers.AF;
+        case BC:
+            if (r.indirect)
+            {
+                return m_mmu->read(m_registers.BC);
+            }
+            return m_registers.BC;
+        case DE:
+            if (r.indirect)
+            {
+                return m_mmu->read(m_registers.DE);
+            }
+            return m_registers.DE;
+        case HL:
+            if (r.indirect)
+            {
+                return m_mmu->read(m_registers.HL);
+            }
+            return m_registers.HL;
+        case HL_inc:
+            if (r.indirect)
+            {
+                return m_mmu->read(m_registers.HL++);
+            }
+            return m_registers.HL++;
+        case HL_dec:
+            if (r.indirect)
+            {
+                return m_mmu->read(m_registers.HL--);
+            }
+            return m_registers.HL--;
+        case SP:
+            return m_registers.SP;
+        case SP_d:
+            return m_registers.SP + (int8_t)m_fetch();
+        case n:
+            if (r.indirect)
+            {
+                return m_mmu->read(0xFF00 + m_fetch());
+            }
+            return m_fetch();
+        case nn:
+            if (r.indirect)
+            {
+                return  m_mmu->read(m_fetch_word());
+            }
+            return m_fetch_word();
+        default:
+            //   fmt::print("m_get_val: unknow reg : {}, {}", r.name, r.indirect);
+            exit(1);
         }
     }
 
-    std::string SM83::rp2_str(int i)
+    void SM83::m_isr()
     {
-        switch (i)
+
+    }
+
+    void SM83::m_stop()
+    {
+
+    }
+
+    void SM83::m_halt()
+    {
+
+    }
+
+    void SM83::m_advance_cycle(int x)
+    {
+        for (int i = 0; i < x; ++i)
         {
-        case 0:
-            return "BC";
-        case 1:
-            return "DE";
-        case 2:
-            return "HL";
-        case 3:
-            return "AF";
+            m_timer->advance_cycle();
         }
     }
 }

@@ -1,98 +1,57 @@
+#include "const.h"
 #include "GameBoy.h"
-
-using namespace std::chrono;
+#include <fmt/core.h>
+#include <iostream>
 
 namespace emulator
 {
-    void GameBoy::start()
+    GameBoy::GameBoy() :
+        GameBoy("")
+    {}
+
+    GameBoy::GameBoy(std::string_view rom_path) :
+        _rom_path(rom_path),
+        _logs(log_file_path),
+        _mmu(std::make_unique<MMU>()),
+        _ppu(std::make_unique<PPU>(
+            (LCD_C&)_mmu->IO_REG->at(LCDC),
+            (STAT_REG&)_mmu->IO_REG->at(STAT),
+            _mmu->IO_REG->at(LY),
+            _mmu->IO_REG->at(SCX),
+            _mmu->IO_REG->at(SCY),
+            std::bit_cast<std::array<sprite_attributes, 40>*>(_mmu->OAM.get()),
+            std::bit_cast<std::array<uint8_t, 0x2000>*>(_mmu->VRAM.get()))),
+        _timer(std::make_unique<Timer>(_mmu.get(), _ppu.get())),
+        _cpu(std::make_unique<SM83>(_mmu.get(), _timer.get()))
     {
-        if (_running)
-        {
-            return;
-        }
-
-        on_init();
-
-        SDL_Event e;
-
-        while (_running)
-        {
-            auto start = high_resolution_clock::now();
-            while (SDL_PollEvent(&e))
-            {
-                on_event(&e);
-            }
-
-            on_loop();
-            on_render();
-            auto end = high_resolution_clock::now();
-
-            double elapsed_time = duration_cast<milliseconds>(end - start).count();
-
-            auto sleep_time = frame_duration_ms - elapsed_time;
-
-            std::this_thread::sleep_for(sleep_time * 1ms);
-        }
+        _mmu->timer = _timer.get();
     }
 
-    void GameBoy::on_init()
+    void GameBoy::update()
     {
-        init_sdl();
-        _mmu->load_boot_rom(boot_rom_path);
-        //_mmu->load_game_rom(gb_rom_path);
-        _running = true;
-    }
-
-    void GameBoy::init_sdl()
-    {
-        if (SDL_Init(SDL_INIT_VIDEO) < 0)
+        while(!_ppu->frame_completed())
         {
-            fmt::print("SDL could not initialize! SDL_Error: {}", SDL_GetError());
-            exit(1);
-        }
-
-        if (SDL_CreateWindowAndRenderer(window_width, window_height, SDL_WINDOW_RESIZABLE, &_window, &_renderer) < 0)
-        {
-            fmt::print("SDL could not create window and/or renderer! SDL_Error: {}", SDL_GetError());
-            exit(1);
-        }
-
-        SDL_RenderSetLogicalSize(_renderer, viewport_width, viewport_height);
-    }
-
-    void GameBoy::on_event(SDL_Event* e)
-    {
-        if (e->type == SDL_QUIT)
-        {
-            _running = false;
-        }
-    }
-
-    void GameBoy::on_loop()
-    {
-        while (!_ppu->frame_completed())
-        {
-            //_logs << _cpu->dump();
             _cpu->run();
-            //_logs << _cpu->print_dis() << std::flush;
         }
     }
 
-    void GameBoy::on_render()
+    color GameBoy::get_color(int x, int y)
     {
-        SDL_RenderClear(_renderer);
+        return _ppu->get_color(x, y);
+    }
 
-        for (int y = 0; y < viewport_height; ++y)
-        {
-            for (int x = 0; x < viewport_width; ++x)
-            {
-                auto color = _ppu->get_color(x, y);
-                SDL_SetRenderDrawColor(_renderer, color.r, color.g, color.b, 255);
-                SDL_RenderDrawPoint(_renderer, x, y);
-            }
-        }
+    void GameBoy::reset_ppu()
+    {
         _ppu->reset();
-        SDL_RenderPresent(_renderer);
+    }
+
+    void GameBoy::init()
+    {
+        _mmu->load_boot_rom(boot_rom_path);
+        if (!_rom_path.empty())
+        {
+            _mmu->load_game_rom(_rom_path);
+        }
     }
 }
 

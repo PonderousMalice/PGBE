@@ -2,6 +2,25 @@
 
 namespace emulator
 {
+    PPU::PPU(LCD_C& LCDC, STAT_REG& STAT, uint8_t& LY, uint8_t& SCX, uint8_t& SCY,
+        std::array<sprite_attributes, 40>* OAM, std::array<uint8_t, 0x2000>* VRAM) :
+        _LCDC(LCDC),
+        _STAT(STAT),
+        _LY(LY),
+        _SCX(SCX),
+        _SCY(SCY),
+        _oam(OAM),
+        _vram(VRAM),
+        _window_line_counter(0),
+        _cur_cycle_in_scanline(0),
+        _frame_completed(false),
+        _line_drawn(false),
+        _state(H_BLANK),
+        _drawing_cycle_nb(172)
+    {
+        _framebuffer.fill(0);
+    }
+
     void PPU::tick()
     {
         if (!lcd_enabled())

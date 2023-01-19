@@ -1,7 +1,39 @@
 #include "MMU.h"
+#include "Timer.h"
+#include <fstream>
+#include <fmt/core.h>
+#include <cstring>
+
 
 namespace emulator
 {
+    MMU::MMU() :
+        BOOT_ROM(std::make_unique<std::array<uint8_t, 256>>()),
+        ROM_BANK_00(std::make_unique<std::array<uint8_t, 0x4000>>()),
+        ROM_BANK_01(std::make_unique<std::array<uint8_t, 0x4000>>()),
+        VRAM(std::make_unique<std::array<uint8_t, 0x2000>>()),
+        EXT_RAM(std::make_unique<std::array<uint8_t, 0x2000>>()),
+        WRAM(std::make_unique<std::array<uint8_t, 0x2000>>()),
+        OAM(std::make_unique<std::array<uint8_t, 0x00A0>>()),
+        IO_REG(std::make_unique<std::array<uint8_t, 0x0080>>()),
+        HRAM(std::make_unique<std::array<uint8_t, 0x007F>>()),
+        IE_REG(0),
+        INTERNAL_DIV(0)
+    {
+        BOOT_ROM->fill(0x00);
+        ROM_BANK_00->fill(0xFF);
+        ROM_BANK_01->fill(0xFF);
+        VRAM->fill(0);
+        EXT_RAM->fill(0);
+        WRAM->fill(0);
+        OAM->fill(0);
+        IO_REG->fill(0);
+        HRAM->fill(0);
+        _dma_bus_conflict = false;
+        _boot_rom_enabled = true;
+        timer = nullptr;
+    }
+
     uint8_t MMU::read(uint16_t adr)
     {
         auto p = get_host_adr(adr);
@@ -9,7 +41,7 @@ namespace emulator
         return (p == nullptr) ? 0xFF : *p;
     }
 
-    void MMU::write(uint16_t adr, uint8_t v)
+    void  MMU::write(uint16_t adr, uint8_t v)
     {
         //  HRAM is not affected by DMA transfers
         if (is_locked(adr))
@@ -27,6 +59,9 @@ namespace emulator
         {
             switch (adr & 0xFF)
             {
+            case DIV:
+                INTERNAL_DIV = 0;
+                break;
             case SB:
                 fmt::print("{:c}", v);
                 break;
@@ -88,7 +123,7 @@ namespace emulator
         return nullptr;
     }
 
-    void MMU::load_boot_rom(std::string path)
+    void  MMU::load_boot_rom(std::string path)
     {
         std::ifstream input(path, std::ios::binary);
 
@@ -101,7 +136,7 @@ namespace emulator
         input.read(reinterpret_cast<char*>(BOOT_ROM.get()), BOOT_ROM->size());
     }
 
-    void MMU::load_game_rom(std::string path)
+    void  MMU::load_game_rom(std::string path)
     {
         std::ifstream input(path, std::ios::binary);
         // _rom_gb = std::vector<uint8_t>((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());

@@ -1,28 +1,96 @@
 #pragma once
 #include "MMU.h"
 #include "Timer.h"
-#include <functional>
-#include "utils.h"
-#include <fmt/core.h>
+#include <variant>
+
+using std::placeholders::_1;
 
 namespace emulator
 {
+    using reg_ptr = std::variant<uint8_t*, uint16_t*>;
+
+    enum reg_name
+    {
+        A,
+        AF,
+        B,
+        BC,
+        C,
+        D,
+        DE,
+        E,
+        H,
+        L,
+        HL,
+        HL_inc,
+        HL_dec,
+        SP,
+        SP_d,
+        n,
+        nn,
+    };
+
+    struct reg_s
+    {
+        reg_name name;
+        bool indirect;
+    };
+
+    struct OP
+    {
+        enum
+        {
+            ALU,
+            ADD_16,
+            BIT,
+            CALL,
+            CALL_CC,
+            CCF,
+            CPL,
+            DAA,
+            DEC,
+            DI,
+            EI,
+            HALT,
+            INC,
+            JP,
+            JP_CC,
+            JR,
+            JR_CC,
+            LD,
+            NOP,
+            POP,
+            PUSH,
+            RES,
+            RET,
+            RET_CC,
+            RETI,
+            RLA,
+            RLCA,
+            ROT,
+            RRA,
+            RRCA,
+            RST,
+            SCF,
+            SET,
+            STOP,
+        } name;
+        std::array<reg_s, 2> args;
+
+        uint8_t y;
+    };
+
     class SM83
     {
     public:
-        SM83(MMU* m, Timer* timer) :
-            _registers()
-        {
-            _mmu = m;
-            _timer = timer;
-            _ime = false;
-        }
+        SM83(MMU* mmu, Timer* t);
 
         void run();
         std::string dump();
-        std::string print_dis();
+        std::string print_dis(OP op);
     private:
-        MMU* _mmu;
+        MMU* m_mmu;
+        Timer* m_timer;
         struct registers
         {
             registers()
@@ -83,164 +151,145 @@ namespace emulator
 
             uint16_t SP;
             uint16_t PC;
-        } _registers;
-        bool _ime;
-        Timer* _timer;
+        } m_registers;
+        bool m_ime, m_debug;
 
-        struct
-        {
-            std::string name;
-            std::string arg1;
-            std::string arg2;
-        } _cur_instr;
+        OP m_decode(uint8_t opcode);
+        void m_execute(OP instr);
+        void m_advance_cycle(int x = 1);
 
-        inline const static bool _debug = true;
+        // Memory access
+        uint8_t m_read(uint16_t adr);
+        uint8_t m_fetch();
+        uint16_t m_fetch_word();
+        void m_write(uint16_t adr, uint8_t v);
+        void m_write(uint16_t adr, uint16_t v);
 
-        // RAM access
-        uint8_t read(uint16_t adr);
-        uint8_t read_byte();
-        uint16_t read_word();
-        void write(uint16_t adr, uint8_t v);
-        void write(uint16_t adr, uint16_t v);
-
-        void ALU(uint8_t y, uint8_t val);
-        bool CC(uint8_t y);
         // Interrupt handler
-        //void ISR();
-
-        void set_half_carry_flag_sub(uint8_t old_value, uint8_t new_value);
-        void set_half_carry_flag_add8(uint8_t val1, uint8_t val2);
-        void set_half_carry_flag_add16(uint8_t val1, uint8_t val2);
-
-        // Conditions
-        bool NZ();
-        bool Z();
-        bool NC();
-        bool C();
+        void m_isr();
 
         // ALU
-        void ADD(uint8_t v);
-        void ADC(uint8_t v);
-        void SUB(uint8_t v);
-        void SBC(uint8_t v);
-        void AND(uint8_t v);
-        void XOR(uint8_t v);
-        void OR(uint8_t v);
-        void CP(uint8_t v);
+        void m_add(uint8_t v);
+        void m_add_16(reg_s lv, reg_s rv);
+        void m_adc(uint8_t v);
+        void m_sub(uint8_t v);
+        void m_sbc(uint8_t v);
+        void m_and(uint8_t v);
+        void m_xor(uint8_t v);
+        void m_or(uint8_t v);
+        void m_cp(uint8_t v);
 
-        // JUMP
-        void CALL(uint16_t adr);
-        void JUMP(uint16_t adr);
-        void RET();
+        void m_dec(reg_ptr v);
+        void m_inc(reg_ptr v);
+
+        void m_cpl();
+        void m_scf();
+        void m_ccf();
+        void m_daa();
+
+        void m_ld(reg_s lv, reg_s rv);
+        void m_pop(uint16_t& r);
+        void m_push(uint16_t r);
 
         // Rotate and shi(f)t instructions
-        void RLC(uint8_t& v);
-        void RRC(uint8_t& v);
-        void RL(uint8_t& v);
-        void RR(uint8_t& v);
-        void SLA(uint8_t& v);
-        void SRA(uint8_t& v);
-        void SWAP(uint8_t& v);
-        void SRL(uint8_t& v);
+        void m_rlc(uint8_t& v);
+        void m_rrc(uint8_t& v);
+        void m_rl(uint8_t& v);
+        void m_rr(uint8_t& v);
+        void m_sla(uint8_t& v);
+        void m_sra(uint8_t& v);
+        void m_swap(uint8_t& v);
+        void m_srl(uint8_t& v);
+        void m_rla();
+        void m_rlca();
+        void m_rra();
+        void m_rrca();
 
-        const std::array<std::function<bool(SM83&)>, 4> _cc
+        // Conditions
+        bool m_nz();
+        bool m_z();
+        bool m_nc();
+        bool m_c();
+
+        // Jump
+        void m_jump(uint16_t adr);
+        void m_call(std::function<bool(void)> cc = nullptr);
+        void m_call(uint16_t adr);
+        void m_jp(std::function<bool(void)> cc = nullptr);
+        void m_jr(std::function<bool(void)> cc = nullptr);
+        void m_ret(std::function<bool(void)> cc = nullptr);
+        void m_reti();
+
+        // Bit op
+        void m_bit(uint8_t v, uint8_t i);
+        void m_res(uint8_t& v, uint8_t i);
+        void m_set(uint8_t& v, uint8_t i);
+
+        // Special
+        void m_stop();
+        void m_halt();
+
+        reg_ptr m_get_ptr(reg_s r); 
+        uint16_t m_get_value(reg_s n);
+
+        const std::array<reg_s, 8> m_r
         {
-            &SM83::NZ,
-            &SM83::Z,
-            &SM83::NC,
-            &SM83::C
+            reg_s{ B, false },
+            reg_s{ C, false },
+            reg_s{ D, false },
+            reg_s{ E, false },
+            reg_s{ H, false },
+            reg_s{ L, false },
+            reg_s{ HL, true },
+            reg_s{ A, false },
         };
 
-        const std::array<std::function<void(SM83&, uint8_t)>, 8> _alu
+        const std::array<reg_s, 4> m_rp
         {
-            &SM83::ADD,
-            &SM83::ADC,
-            &SM83::SUB,
-            &SM83::SBC,
-            &SM83::AND,
-            &SM83::XOR,
-            &SM83::OR,
-            &SM83::CP
+            reg_s{ BC, false },
+            reg_s{ DE, false },
+            reg_s{ HL, false },
+            reg_s{ SP, false },
         };
 
-        const std::array<std::function<void(SM83&, uint8_t&)>, 8> _rot
+        const std::array<reg_s, 4> m_rp2
         {
-            &SM83::RLC,
-            &SM83::RRC,
-            &SM83::RL,
-            &SM83::RR,
-            &SM83::SLA,
-            &SM83::SRA,
-            &SM83::SWAP,
-            &SM83::SRL
+            reg_s{ BC, false },
+            reg_s{ DE, false },
+            reg_s{ HL, false },
+            reg_s{ AF, false },
         };
 
-
-        uint8_t& r(int i)
+        const std::array<std::function<void(uint8_t)>, 8> m_alu
         {
-            switch (i)
-            {
-            case 0:
-                return _registers.B;
-            case 1:
-                return _registers.C;
-            case 2:
-                return _registers.D;
-            case 3:
-                return _registers.E;
-            case 4:
-                return _registers.H;
-            case 5:
-                return _registers.L;
-            case 6:
-                return *(_mmu->get_host_adr(_registers.HL));
-            case 7:
-                return _registers.A;
-
-            }
-        }
-
-        const std::array<uint16_t*, 4> _rp
-        {
-            &_registers.BC,
-            &_registers.DE,
-            &_registers.HL,
-            &_registers.SP
+            std::bind(&SM83::m_add, this, _1),
+            std::bind(&SM83::m_adc, this, _1),
+            std::bind(&SM83::m_sub, this, _1),
+            std::bind(&SM83::m_sbc, this, _1),
+            std::bind(&SM83::m_and, this, _1),
+            std::bind(&SM83::m_xor, this, _1),
+            std::bind(&SM83::m_or, this, _1),
+            std::bind(&SM83::m_cp, this, _1),
         };
 
-        const std::array<uint16_t*, 4> _rp2
+        const std::array<std::function<void(uint8_t&)>, 8> m_rot
         {
-            &_registers.BC,
-            &_registers.DE,
-            &_registers.HL,
-            &_registers.AF
+            std::bind(&SM83::m_rlc, this, _1),
+            std::bind(&SM83::m_rrc, this, _1),
+            std::bind(&SM83::m_rl, this, _1),
+            std::bind(&SM83::m_rr, this, _1),
+            std::bind(&SM83::m_sla, this, _1),
+            std::bind(&SM83::m_sra, this, _1),
+            std::bind(&SM83::m_swap, this, _1),
+            std::bind(&SM83::m_srl, this, _1),
         };
-        
-        std::string r_str(int i)
+
+        const std::array<std::function<bool(void)>, 4> m_cc
         {
-            switch (i)
-            {
-            case 0:
-                return "B";
-            case 1:
-                return "C";
-            case 2:
-                return "D";
-            case 3:
-                return "E";
-            case 4:
-                return "H";
-            case 5:
-                return "L";
-            case 6:
-                return "(HL)";
-            case 7:
-                return "A";
-            }
-        }
-        std::string CC_str(int y);
-        std::string rp_str(int i);
-        std::string rp2_str(int i);
+            std::bind(&SM83::m_nz, this),
+            std::bind(&SM83::m_z, this),
+            std::bind(&SM83::m_nc, this),
+            std::bind(&SM83::m_c, this),
+        };
     };
 }
-
