@@ -3,6 +3,7 @@
 #include <fstream>
 #include <fmt/core.h>
 #include <cstring>
+#include <iostream>
 
 
 namespace emulator
@@ -63,14 +64,17 @@ namespace emulator
                 INTERNAL_DIV = 0;
                 break;
             case SB:
-                fmt::print("{:c}", v);
+                std::cout << fmt::format("{:c}", v);
                 break;
             case DMA:
                 // DMA TRANSFER
                 // start transfer in 4 cycles
                 break;
             case BANK:
-                _boot_rom_enabled = (v == 0);
+                if (_boot_rom_enabled && v == 0)
+                {
+                    _boot_rom_enabled = false;
+                }
                 break;
             }
         }

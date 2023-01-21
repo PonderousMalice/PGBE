@@ -2,6 +2,8 @@
 #include "utils.h"
 #include <fmt/core.h>
 #include <functional>
+#include <iostream>
+#include <stdexcept>
 
 namespace emulator
 {
@@ -177,7 +179,7 @@ namespace emulator
                     // 16-bit INC/DEC
                     // INC rp[p]
                     // DEC rp[p]
-                    res.name = q ? OP::DEC : OP::INC;
+                    res.name = q ? OP::DEC_16 : OP::INC_16;
                     res.args[0] = m_rp.at(p);
                     break;
                 case 4:
@@ -312,8 +314,7 @@ namespace emulator
                             break;
                         case 2:
                             // JP HL
-                            res.name = OP::JP;
-                            res.args[0] = { HL, false };
+                            res.name = OP::JP_HL;
                             break;
                         case 3:
                             // LD SP, HL
@@ -426,34 +427,31 @@ namespace emulator
     {
         uint8_t y = instr.y;
         auto arg1 = instr.args[0];
+        auto arg2 = instr.args[1];
 
         switch (instr.name)
         {
         case OP::ALU:
-            m_alu.at(y)(m_get_value(arg1));
+            m_alu.at(y)(m_get_reg(arg1));
             break;
         case OP::ADD_16:
-            m_add_16(instr.args[0], instr.args[1]);
+            m_add_16(arg1, arg2);
             break;
         case OP::BIT:
-            m_bit(m_get_value(arg1), y);
+            m_bit(m_get_reg(arg1), y);
             break;
         case OP::RES:
         {
-            auto p = std::get<uint8_t*>(m_get_ptr(arg1));
-            if (p)
-            {
-                m_res(*p, y);
-            }
+            uint8_t tmp = m_get_reg(arg1);
+            m_res(tmp, y);
+            m_set_reg(arg1, tmp);
         }
         break;
         case OP::SET:
         {
-            auto p = std::get<uint8_t*>(m_get_ptr(arg1));
-            if (p)
-            {
-                m_set(*p, y);
-            }
+            uint8_t tmp = m_get_reg(arg1);
+            m_set(tmp, y);
+            m_set_reg(arg1, tmp);
         }
         break;
         case OP::NOP:
@@ -463,6 +461,9 @@ namespace emulator
             break;
         case OP::CALL_CC:
             m_call(m_cc.at(y));
+            break;
+        case OP::DAA:
+            m_daa();
             break;
         case OP::CPL:
             m_cpl();
@@ -475,19 +476,39 @@ namespace emulator
             break;
         case OP::ROT:
         {
-            auto p = std::get<uint8_t*>(m_get_ptr(arg1));
-            if (p)
-            {
-                m_rot.at(y)(*p);
-            }
+            uint8_t tmp = m_get_reg(arg1);
+            m_rot.at(y)(tmp);
+            m_set_reg(arg1, tmp);
         }
         break;
         case OP::DEC:
-            m_dec(m_get_ptr(arg1));
-            break;
+        {
+            uint8_t tmp = m_get_reg(arg1);
+            m_dec(&tmp);
+            m_set_reg(arg1, tmp);
+        }
+        break;
+        case OP::DEC_16:
+        {
+            uint16_t tmp = m_get_reg_16(arg1);
+            m_dec(&tmp);
+            m_set_reg(arg1, tmp);
+        }
+        break;
         case OP::INC:
-            m_inc(m_get_ptr(arg1));
-            break;
+        {
+            uint8_t tmp = m_get_reg(arg1);
+            m_inc(&tmp);
+            m_set_reg(arg1, tmp);
+        }
+        break;
+        case OP::INC_16:
+        {
+            uint16_t tmp = m_get_reg_16(arg1);
+            m_inc(&tmp);
+            m_set_reg(arg1, tmp);
+        }
+        break;
         case OP::DI:
             m_ime = false;
             break;
@@ -503,6 +524,9 @@ namespace emulator
         case OP::JP_CC:
             m_jp(m_cc.at(y));
             break;
+        case OP::JP_HL:
+            m_registers.PC = m_registers.HL;
+            break;
         case OP::JR:
             m_jr();
             break;
@@ -510,19 +534,22 @@ namespace emulator
             m_jr(m_cc.at(y - 4));
             break;
         case OP::LD:
-            m_ld(instr.args[0], instr.args[1]);
+            m_ld(arg1, arg2);
             break;
         case OP::POP:
         {
-            auto p = std::get<uint16_t*>(m_get_ptr(arg1));
-            if (p)
+            uint16_t tmp = m_get_reg_16(arg1);
+            m_pop(tmp);
+            m_set_reg(arg1, tmp);
+
+            if (arg1.name == AF)
             {
-                m_pop(*p);
+                m_registers.F &= 0xF0;
             }
         }
         break;
         case OP::PUSH:
-            m_push(m_get_value(arg1));
+            m_push(m_get_reg_16(arg1));
             break;
         case OP::RET:
             m_ret();
@@ -546,10 +573,13 @@ namespace emulator
             m_rrca();
             break;
         case OP::RST:
-            m_call(y * 8);
+            m_rst(y);
             break;
         case OP::STOP:
             m_stop();
+            break;
+        default:
+            std::cout << "no op : " << instr.name;
             break;
         }
     }
@@ -570,7 +600,105 @@ namespace emulator
     uint8_t SM83::m_read(uint16_t adr)
     {
         m_advance_cycle();
+        if (adr == 0xFF44 && g_debug)
+        {
+            return 0x90;
+        }
+
         return m_mmu->read(adr);
+    }
+
+    uint16_t SM83::m_get_reg_16(reg_s r)
+    {
+        switch (r.name)
+        {
+        case A:
+            return m_registers.A;
+        case B:
+            return m_registers.B;
+        case C:
+            if (r.indirect)
+            {
+                return m_read(0xFF00 + m_registers.C);
+            }
+            return m_registers.C;
+        case D:
+            return m_registers.D;
+        case E:
+            return m_registers.E;
+        case H:
+            return m_registers.H;
+        case L:
+            return m_registers.L;
+        case AF:
+            if (r.indirect)
+            {
+                return m_read(m_registers.AF);
+            }
+            return m_registers.AF;
+        case BC:
+            if (r.indirect)
+            {
+                return m_read(m_registers.BC);
+            }
+            return m_registers.BC;
+        case DE:
+            if (r.indirect)
+            {
+                return m_read(m_registers.DE);
+            }
+            return m_registers.DE;
+        case HL:
+            if (r.indirect)
+            {
+                return m_read(m_registers.HL);
+            }
+            return m_registers.HL;
+        case HL_inc:
+            if (r.indirect)
+            {
+                return m_read(m_registers.HL++);
+            }
+            return m_registers.HL++;
+        case HL_dec:
+            if (r.indirect)
+            {
+                return m_read(m_registers.HL--);
+            }
+            return m_registers.HL--;
+        case SP:
+            if (r.indirect)
+            {
+                return m_read(m_registers.SP);
+            }
+            return m_registers.SP;
+        case SP_d:
+            if (r.indirect)
+            {
+                return m_read(m_registers.SP + (int8_t)m_fetch());
+            }
+            return m_registers.SP + (int8_t)m_fetch();
+        case n:
+            if (r.indirect)
+            {
+                return m_read(0xFF00 + m_fetch());
+            }
+            return m_fetch();
+        case nn:
+            if (r.indirect)
+            {
+                return m_read(m_fetch_word());
+            }
+            return m_fetch_word();
+            return m_fetch_word();
+        default:
+            throw "pute";
+        }
+    }
+
+    uint8_t SM83::m_get_reg(reg_s r)
+    {
+        return (uint8_t)(0x00FF & m_get_reg_16(r));
     }
 
     void SM83::m_write(uint16_t adr, uint8_t v)
@@ -579,10 +707,125 @@ namespace emulator
         m_mmu->write(adr, v);
     }
 
-    void SM83::m_write(uint16_t adr, uint16_t v)
+    void SM83::m_set_reg(reg_s r, uint16_t v)
     {
-        m_write(adr, LSB(v));
-        m_write(adr + 1, MSB(v));
+        switch (r.name)
+        {
+        case A:
+            m_registers.A = v;
+            break;
+        case B:
+            m_registers.B = v;
+            break;
+        case C:
+            if (r.indirect)
+            {
+                m_write(0xFF00 + m_registers.C, v);
+            }
+            else
+            {
+                m_registers.C = v;
+            }
+            break;
+        case D:
+            m_registers.D = v;
+            break;
+        case E:
+            m_registers.E = v;
+            break;
+        case H:
+            m_registers.H = v;
+            break;
+        case L:
+            m_registers.L = v;
+            break;
+        case AF:
+            if (r.indirect)
+            {
+                m_write(m_registers.AF, v);
+            }
+            else
+            {
+                m_registers.AF = v;
+            }
+            break;
+        case BC:
+            if (r.indirect)
+            {
+                m_write(m_registers.BC, v);
+            }
+            else
+            {
+                m_registers.BC = v;
+            }
+            break;
+        case DE:
+            if (r.indirect)
+            {
+                m_write(m_registers.DE, v);
+            }
+            else
+            {
+                m_registers.DE = v;
+            }
+            break;
+        case HL:
+            if (r.indirect)
+            {
+                m_write(m_registers.HL, v);
+            }
+            else
+            {
+                m_registers.HL = v;
+            }
+            break;
+        case HL_inc:
+            if (r.indirect)
+            {
+                m_write(m_registers.HL, v);
+            }
+            else
+            {
+                m_registers.HL = v;
+            }
+            m_registers.HL++;
+            break;
+        case HL_dec:
+            if (r.indirect)
+            {
+                m_write(m_registers.HL, v);
+            }
+            else
+            {
+                m_registers.HL = v;
+            }
+            m_registers.HL--;
+            break;
+        case SP:
+            if (r.indirect)
+            {
+                m_write(m_registers.SP, v);
+            }
+            else
+            {
+                m_registers.SP = v;
+            }
+            break;
+        case n:
+            if (r.indirect)
+            {
+                m_write(0xFF00 + m_fetch(), v);
+            }
+            break;
+        case nn:
+            if (r.indirect)
+            {
+                m_write(m_fetch_word(), v);
+            }
+            break;
+        default:
+            throw "kekw";
+        }
     }
 
     bool SM83::m_nz()
@@ -607,19 +850,11 @@ namespace emulator
 
     void SM83::m_ld(reg_s lv, reg_s rv)
     {
-        auto arg1 = m_get_ptr(lv);
-        auto arg2 = m_get_value(rv);;
-
-        std::visit(overload
-            {
-                [arg2](auto* l)
-                {
-                    *l = arg2;
-                },
-            }, arg1);
+        auto v = m_get_reg_16(rv);
+        m_set_reg(lv, v);
     }
 
-    void SM83::m_dec(reg_ptr v)
+    void SM83::m_dec(reg_t v)
     {
         std::visit(overload
             {
@@ -634,7 +869,7 @@ namespace emulator
             }, v);
     }
 
-    void SM83::m_inc(reg_ptr v)
+    void SM83::m_inc(reg_t v)
     {
         std::visit(overload
             {
@@ -644,7 +879,7 @@ namespace emulator
                     auto old = (*arg)++;
                     m_registers.flags.n = false;
                     m_registers.flags.z = (*arg == 0);
-                    m_registers.flags.h = ((old & 0x0F) + (*arg & 0x0F)) >= 0x10;
+                    m_registers.flags.h = ((old & 0x0F) == 0x0F);
                 },
             }, v);
     }
@@ -663,16 +898,31 @@ namespace emulator
 
     void SM83::m_add_16(reg_s lv, reg_s rv)
     {
+        uint32_t res = 0;
+        m_registers.flags.h = false;
+
         if (lv.name == SP)
         {
             int8_t d = m_fetch();
-            m_registers.SP += d;
+            res = m_registers.SP + d;
+            m_registers.SP = res;
         }
         else if (lv.name == HL)
         {
-            auto v = m_get_value(rv);
-            m_registers.HL += v;
+            auto v = m_get_reg_16(rv);
+            res = m_registers.HL + v;
+            m_registers.flags.h = ((m_registers.HL & 0x0FFF) + (v & 0x0FFF)) >= 0x1000;
+            m_registers.HL = res;
+        }  
+
+        if (lv.name == SP || rv.name == SP_d)
+        {
+            m_registers.flags.z = false;
         }
+
+        //m_registers.flags.h = (res > 0xFFF);
+        m_registers.flags.c = (res > 0xFFFF);
+        m_registers.flags.n = false;
     }
 
     void SM83::m_adc(uint8_t v)
@@ -778,58 +1028,47 @@ namespace emulator
 
         if (m_registers.flags.n)
         {
-            if (m_registers.flags.h)
-            {
-                n -= 0x06;
-            }
-
             if (m_registers.flags.c)
             {
                 n -= 0x60;
             }
+
+            if (m_registers.flags.h)
+            {
+                n -= 0x06;
+            }
         }
         else
         {
-            if (m_registers.flags.h || (n & 0x0F) > 0x09)
-            {
-                n += 0x06;
-            }
-
             if (m_registers.flags.c || n > 0x99)
             {
                 n += 0x60;
                 m_registers.flags.c = true;
             }
+
+            if (m_registers.flags.h || (n & 0x0F) > 0x09)
+            {
+                n += 0x06;
+            }
         }
 
-        m_registers.flags.z = (n == 0);
+        m_registers.flags.z = ((n & 0xFF) == 0);
         m_registers.flags.h = 0;
 
         m_registers.A = n;
     }
 
-    void SM83::m_call(uint16_t adr)
-    {
-        m_registers.SP -= 2;
-        m_write(m_registers.SP, LSB(m_registers.PC));
-        m_write(m_registers.SP + 1, MSB(m_registers.PC));
-        m_jump(adr);
-    }
-
     void SM83::m_call(std::function<bool(void)> cond)
     {
-        m_registers.SP -= 2;
-        m_write(m_registers.SP, LSB(m_registers.PC));
-        m_write(m_registers.SP + 1, MSB(m_registers.PC));
+        uint16_t nn = m_fetch_word();
+
         if (!cond || cond())
         {
-            m_jp();
+            m_registers.SP -= 2;
+            m_write(m_registers.SP, LSB(m_registers.PC));
+            m_write(m_registers.SP + 1, MSB(m_registers.PC));
+            m_registers.PC = nn;
         }
-    }
-
-    void SM83::m_jump(uint16_t adr)
-    {
-        m_registers.PC = adr;
     }
 
     void SM83::m_jp(std::function<bool(void)> cond)
@@ -837,7 +1076,7 @@ namespace emulator
         uint16_t nn = m_fetch_word();
         if (!cond || cond())
         {
-            m_jump(nn);
+            m_registers.PC = nn;
         }
     }
 
@@ -846,21 +1085,30 @@ namespace emulator
         int8_t d = m_fetch();
         if (!cond || cond())
         {
-            m_jump(m_registers.PC + d);
+            m_registers.PC += d;
         }
     }
 
     void SM83::m_ret(std::function<bool(void)> cond)
     {
-        auto lsb = m_read(m_registers.SP);
-        auto msb = m_read(m_registers.SP + 1);
-        auto adr = combine(lsb, msb);
+        uint8_t lsb = m_read(m_registers.SP);
+        uint8_t msb = m_read(m_registers.SP + 1);
 
-        if (!cond || cond())
+        if (!cond ||cond())
         {
-            m_registers.PC = adr;
+            m_registers.PC = combine(lsb, msb);
             m_registers.SP += 2;
         }
+    }
+
+    void SM83::m_rst(uint8_t y)
+    {
+        uint16_t nn = y * 8;
+
+        m_registers.SP -= 2;
+        m_write(m_registers.SP, LSB(m_registers.PC));
+        m_write(m_registers.SP + 1, MSB(m_registers.PC));
+        m_registers.PC = nn;
     }
 
     void SM83::m_reti()
@@ -886,7 +1134,7 @@ namespace emulator
         m_registers.flags.h = false;
         m_registers.flags.n = false;
         m_registers.flags.c = v & 0x01;
-
+        // TO FIX ?
         v >>= 1;
         v |= (m_registers.flags.c << 8);
 
@@ -908,13 +1156,16 @@ namespace emulator
 
     void SM83::m_rr(uint8_t& v)
     {
-        uint8_t n = m_registers.flags.c;
+        bool carry = m_registers.flags.c;
         m_registers.flags.h = false;
         m_registers.flags.n = false;
         m_registers.flags.c = (v & 0x01);
 
         v >>= 1;
-        v |= (n << 8);
+        if (carry)
+        {
+            set_bit(v, 7);
+        }
 
         m_registers.flags.z = (v == 0);
     }
@@ -965,26 +1216,34 @@ namespace emulator
 
     void SM83::m_rla()
     {
-        m_registers.flags.z = false;
         m_rl(m_registers.A);
+        m_registers.flags.z = false;
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
     }
 
     void SM83::m_rlca()
     {
-        m_registers.flags.z = false;
         m_rlc(m_registers.A);
+        m_registers.flags.z = false;
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
     }
 
     void SM83::m_rra()
     {
-        m_registers.flags.z = false;
         m_rr(m_registers.A);
+        m_registers.flags.z = false;
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
     }
 
     void SM83::m_rrca()
     {
-        m_registers.flags.z = false;
         m_rrc(m_registers.A);
+        m_registers.flags.z = false;
+        m_registers.flags.h = false;
+        m_registers.flags.n = false;
     }
 
     void SM83::m_bit(uint8_t v, uint8_t i)
@@ -1008,11 +1267,6 @@ namespace emulator
     {
         uint8_t n = m_read(m_registers.SP++);
         rp = combine(n, m_read(m_registers.SP++));
-
-        if (&rp == &m_registers.AF)
-        {
-            m_registers.F &= 0xF0;
-        }
     }
 
     void SM83::m_push(uint16_t rp)
@@ -1051,160 +1305,13 @@ namespace emulator
 
     std::string SM83::print_dis(OP op)
     {
+        switch (op.name)
+        {
+        default:
+            break;
+        }
         return "";
-        //return fmt::format("{} {},{}\n", _cur_instr.name, _cur_instr.arg1, _cur_instr.arg2);
-    }
-
-    reg_ptr SM83::m_get_ptr(reg_s r)
-    {
-
-        switch (r.name)
-        {
-        case A:
-            return &m_registers.A;
-        case B:
-            return &m_registers.B;
-        case C:
-            if (r.indirect)
-            {
-                return m_mmu->get_host_adr(0xFF00 + m_registers.C);
-            }
-            return &m_registers.C;
-        case D:
-            return &m_registers.D;
-        case E:
-            return &m_registers.E;
-        case H:
-            return &m_registers.H;
-        case L:
-            return &m_registers.L;
-        case AF:
-            return &m_registers.AF;
-        case BC:
-            return &m_registers.BC;
-        case DE:
-            return &m_registers.DE;
-        case HL:
-            if (r.indirect)
-            {
-                return m_mmu->get_host_adr(m_registers.HL);
-            }
-            return &m_registers.HL;
-        case HL_inc:
-            if (!r.indirect)
-            {
-                auto p = &m_registers.HL;
-                m_registers.HL++;
-                return p;
-
-            }
-            return m_mmu->get_host_adr(m_registers.HL++);
-        case HL_dec:
-            if (!r.indirect)
-            {
-                auto p = &m_registers.HL;
-                m_registers.HL--;
-                return p;
-            }
-            return m_mmu->get_host_adr(m_registers.HL--);
-        case SP:
-            return &m_registers.SP;
-        case n:
-            if (r.indirect)
-            {
-                return m_mmu->get_host_adr(0xFF00 + m_fetch());
-            }
-            break;
-        case nn:
-            if (r.indirect)
-            {
-                return  m_mmu->get_host_adr(m_fetch_word());
-            }
-            break;
-        default:
-            //fmt::print("m_get_reg: unknow reg : {}, {}", r.name, r.indirect);
-            exit(1);
-        }
-    }
-
-    uint16_t SM83::m_get_value(reg_s r)
-    {
-        switch (r.name)
-        {
-        case A:
-            return m_registers.A;
-        case B:
-            return m_registers.B;
-        case C:
-            if (r.indirect)
-            {
-                return m_mmu->read(0xFF00 + m_registers.C);
-            }
-            return m_registers.C;
-        case D:
-            return m_registers.D;
-        case E:
-            return m_registers.E;
-        case H:
-            return m_registers.H;
-        case L:
-            return m_registers.L;
-        case AF:
-            if (r.indirect)
-            {
-                return m_mmu->read(m_registers.AF);
-            }
-            return m_registers.AF;
-        case BC:
-            if (r.indirect)
-            {
-                return m_mmu->read(m_registers.BC);
-            }
-            return m_registers.BC;
-        case DE:
-            if (r.indirect)
-            {
-                return m_mmu->read(m_registers.DE);
-            }
-            return m_registers.DE;
-        case HL:
-            if (r.indirect)
-            {
-                return m_mmu->read(m_registers.HL);
-            }
-            return m_registers.HL;
-        case HL_inc:
-            if (r.indirect)
-            {
-                return m_mmu->read(m_registers.HL++);
-            }
-            return m_registers.HL++;
-        case HL_dec:
-            if (r.indirect)
-            {
-                return m_mmu->read(m_registers.HL--);
-            }
-            return m_registers.HL--;
-        case SP:
-            return m_registers.SP;
-        case SP_d:
-            return m_registers.SP + (int8_t)m_fetch();
-        case n:
-            if (r.indirect)
-            {
-                return m_mmu->read(0xFF00 + m_fetch());
-            }
-            return m_fetch();
-        case nn:
-            if (r.indirect)
-            {
-                return  m_mmu->read(m_fetch_word());
-            }
-            return m_fetch_word();
-        default:
-            //   fmt::print("m_get_val: unknow reg : {}, {}", r.name, r.indirect);
-            exit(1);
-        }
+        // return fmt::format("{} {},{} \n", op.name, op.args[0], op.args[1]);
     }
 
     void SM83::m_isr()

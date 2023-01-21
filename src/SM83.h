@@ -7,10 +7,11 @@ using std::placeholders::_1;
 
 namespace emulator
 {
-    using reg_ptr = std::variant<uint8_t*, uint16_t*>;
+    using reg_t = std::variant<uint8_t*, uint16_t*>;
 
     enum reg_name
     {
+        None,
         A,
         AF,
         B,
@@ -49,12 +50,15 @@ namespace emulator
             CPL,
             DAA,
             DEC,
+            DEC_16,
             DI,
             EI,
             HALT,
             INC,
+            INC_16,
             JP,
             JP_CC,
+            JP_HL,
             JR,
             JR_CC,
             LD,
@@ -152,7 +156,7 @@ namespace emulator
             uint16_t SP;
             uint16_t PC;
         } m_registers;
-        bool m_ime, m_debug;
+        bool m_ime;
 
         OP m_decode(uint8_t opcode);
         void m_execute(OP instr);
@@ -160,10 +164,14 @@ namespace emulator
 
         // Memory access
         uint8_t m_read(uint16_t adr);
+        uint16_t m_get_reg_16(reg_s r);
+        uint8_t m_get_reg(reg_s r);
+
+
         uint8_t m_fetch();
         uint16_t m_fetch_word();
         void m_write(uint16_t adr, uint8_t v);
-        void m_write(uint16_t adr, uint16_t v);
+        void m_set_reg(reg_s r, uint16_t v);
 
         // Interrupt handler
         void m_isr();
@@ -179,8 +187,8 @@ namespace emulator
         void m_or(uint8_t v);
         void m_cp(uint8_t v);
 
-        void m_dec(reg_ptr v);
-        void m_inc(reg_ptr v);
+        void m_dec(reg_t v);
+        void m_inc(reg_t v);
 
         void m_cpl();
         void m_scf();
@@ -188,6 +196,7 @@ namespace emulator
         void m_daa();
 
         void m_ld(reg_s lv, reg_s rv);
+
         void m_pop(uint16_t& r);
         void m_push(uint16_t r);
 
@@ -212,13 +221,12 @@ namespace emulator
         bool m_c();
 
         // Jump
-        void m_jump(uint16_t adr);
         void m_call(std::function<bool(void)> cc = nullptr);
-        void m_call(uint16_t adr);
         void m_jp(std::function<bool(void)> cc = nullptr);
         void m_jr(std::function<bool(void)> cc = nullptr);
         void m_ret(std::function<bool(void)> cc = nullptr);
         void m_reti();
+        void m_rst(uint8_t y);
 
         // Bit op
         void m_bit(uint8_t v, uint8_t i);
@@ -229,7 +237,7 @@ namespace emulator
         void m_stop();
         void m_halt();
 
-        reg_ptr m_get_ptr(reg_s r); 
+        reg_t m_get_ptr(reg_s r); 
         uint16_t m_get_value(reg_s n);
 
         const std::array<reg_s, 8> m_r

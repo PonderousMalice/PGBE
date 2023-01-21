@@ -31,6 +31,10 @@ namespace emulator
     {
         while(!_ppu->frame_completed())
         {
+            if (g_debug)
+            {
+                _logs << _cpu->dump();
+            }
             _cpu->run();
         }
     }
