@@ -67,6 +67,8 @@ namespace emulator
 
     void App::m_event(SDL_Event* e)
     {
+        bool released = false;
+
         switch (e->type)
         {
         case SDL_QUIT:
@@ -76,6 +78,37 @@ namespace emulator
             gb = std::make_unique<GameBoy>(e->drop.file);
             gb->init();
             SDL_free(e->drop.file);
+            break;
+        case SDL_KEYUP:
+            released = true;
+        case SDL_KEYDOWN:
+            switch (e->key.keysym.sym)
+            {
+            case SDLK_UP:
+                gb->use_button(GB_UP, released);
+                break;
+            case SDLK_DOWN:
+                gb->use_button(GB_DOWN, released);
+                break;
+            case SDLK_LEFT:
+                gb->use_button(GB_LEFT, released);
+                break;
+            case SDLK_RIGHT:
+                gb->use_button(GB_RIGHT, released);
+                break;
+            case SDLK_a:
+                gb->use_button(GB_A, released);
+                break;
+            case SDLK_s:
+                gb->use_button(GB_B, released);
+                break;
+            case SDLK_x:
+                gb->use_button(GB_SELECT, released);
+                break;
+            case SDLK_z:
+                gb->use_button(GB_START, released);
+                break;
+            }
             break;
         }
     }

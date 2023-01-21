@@ -9,23 +9,24 @@ namespace emulator
     class PPU
     {
     public:
-        PPU(LCD_C& LCDC, STAT_REG& STAT, uint8_t& LY, uint8_t& SCX, uint8_t& SCY,
-            std::array<sprite_attributes, 40>* OAM, std::array<uint8_t, 0x2000>* VRAM);
+        PPU(LCD_C& LCDC, STAT_REG& STAT, uint8_t& LY, uint8_t& SCX,
+            uint8_t& SCY, uint8_t& rIF, std::array<sprite_attributes, 40>* OAM,
+            std::array<uint8_t, 0x2000>* VRAM);
 
         void tick();
         void reset();
         color get_color(int x, int y);
         bool frame_completed();
     private:
-        LCD_C& _LCDC;
-        STAT_REG& _STAT;
-        uint8_t &_LY, &_SCX, &_SCY;
-        
-        std::array<sprite_attributes, 40>* _oam;
-        std::array<uint8_t, 0x2000>* _vram;
+        LCD_C& m_LCDC;
+        STAT_REG& m_STAT;
+        uint8_t& m_LY, & m_SCX, & m_SCY, &m_IF;
 
-        std::array<uint8_t, buffer_size> _framebuffer;
-        std::vector<sprite_attributes> _sprite_buffer;
+        std::array<sprite_attributes, 40>* m_oam;
+        std::array<uint8_t, 0x2000>* m_vram;
+
+        std::array<uint8_t, buffer_size> m_framebuffer;
+        std::vector<sprite_attributes> m_sprite_buffer;
         std::array<color, 4> bg_palette
         {
             color
@@ -54,11 +55,11 @@ namespace emulator
             },
         };
 
-        int _cur_cycle_in_scanline;
-        int _window_line_counter;
-        int _drawing_cycle_nb;
-        bool _frame_completed;
-        bool _line_drawn;
+        int m_cur_cycle_in_scanline;
+        int m_window_line_counter;
+        int m_drawing_cycle_nb;
+        bool m_frame_completed;
+        bool m_line_drawn;
 
         enum state
         {
@@ -66,7 +67,7 @@ namespace emulator
             DRAWING = 3, // Mode 3
             H_BLANK = 0, // Mode 0
             V_BLANK = 1, // Mode 1
-        } _state;
+        } m_state;
 
         void draw_line();
         void scan_oam();
@@ -78,12 +79,12 @@ namespace emulator
 
         bool window_enabled()
         {
-            return _LCDC.flags.win_enable;
+            return m_LCDC.flags.win_enable;
         }
 
         bool lcd_enabled()
         {
-            return _LCDC.flags.lcd_ppu_enable;
+            return m_LCDC.flags.lcd_ppu_enable;
         }
     };
 }

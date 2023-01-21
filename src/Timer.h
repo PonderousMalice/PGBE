@@ -26,12 +26,12 @@ namespace emulator
 
         void tima_overflow();
 
-        MMU* _mmu;
-        PPU* _ppu;
-        uint16_t& _internal_div;
-        uint8_t& _div, &_tima, &_tma, &_tac, &_interupt_flag;
-        bool _prev_and_res;
-        uint8_t _prev_tima;
-        std::vector<ClockWatch> timers;
+        MMU* m_mmu;
+        PPU* m_ppu;
+        uint16_t& m_internal_div;
+        uint8_t& m_div, &m_tima, &m_tma, &m_tac, &m_IF;
+        bool m_prev_and_res;
+        uint8_t m_prev_tima;
+        std::vector<ClockWatch> m_timers;
     };
 }

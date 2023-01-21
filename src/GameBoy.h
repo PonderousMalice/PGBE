@@ -9,6 +9,18 @@
 
 namespace emulator
 {
+    enum GB_BUTTON
+    {
+        GB_UP,
+        GB_DOWN,
+        GB_LEFT,
+        GB_RIGHT,
+        GB_A,
+        GB_B,
+        GB_START,
+        GB_SELECT
+    };
+
     class GameBoy
     {
     public:
@@ -19,12 +31,14 @@ namespace emulator
         void update();
         color get_color(int x, int y);
         void reset_ppu();
+
+        void use_button(GB_BUTTON b, bool realeased);
     private:
-        std::unique_ptr<MMU> _mmu;
-        std::unique_ptr<PPU> _ppu;
-        std::unique_ptr<Timer> _timer;
-        std::unique_ptr<SM83> _cpu;
-        std::ofstream _logs;
-        std::string _rom_path;
+        MMU m_mmu;
+        PPU m_ppu;
+        Timer m_timer;
+        SM83 m_cpu;
+        std::ofstream m_logs;
+        std::string m_rom_path;
     };
 }

@@ -155,8 +155,8 @@ namespace emulator
         std::unique_ptr<std::array<uint8_t, 0x00A0>> OAM;
         std::unique_ptr<std::array<uint8_t, 0x0080>> IO_REG;
         std::unique_ptr<std::array<uint8_t, 0x007F>> HRAM;
-        uint8_t IE_REG;
         uint16_t INTERNAL_DIV;
+        uint8_t IE_REG;
         Timer* timer;
     private:
         bool _dma_bus_conflict;

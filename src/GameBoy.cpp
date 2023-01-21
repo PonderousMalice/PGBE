@@ -2,6 +2,7 @@
 #include "GameBoy.h"
 #include <fmt/core.h>
 #include <iostream>
+#include "utils.h"
 
 namespace emulator
 {
@@ -10,51 +11,81 @@ namespace emulator
     {}
 
     GameBoy::GameBoy(std::string_view rom_path) :
-        _rom_path(rom_path),
-        _logs(log_file_path),
-        _mmu(std::make_unique<MMU>()),
-        _ppu(std::make_unique<PPU>(
-            (LCD_C&)_mmu->IO_REG->at(LCDC),
-            (STAT_REG&)_mmu->IO_REG->at(STAT),
-            _mmu->IO_REG->at(LY),
-            _mmu->IO_REG->at(SCX),
-            _mmu->IO_REG->at(SCY),
-            std::bit_cast<std::array<sprite_attributes, 40>*>(_mmu->OAM.get()),
-            std::bit_cast<std::array<uint8_t, 0x2000>*>(_mmu->VRAM.get()))),
-        _timer(std::make_unique<Timer>(_mmu.get(), _ppu.get())),
-        _cpu(std::make_unique<SM83>(_mmu.get(), _timer.get()))
+        m_rom_path(rom_path),
+        m_logs(log_file_path),
+        m_mmu(),
+        m_ppu((LCD_C&)m_mmu.IO_REG->at(LCDC),
+            (STAT_REG&)m_mmu.IO_REG->at(STAT),
+            m_mmu.IO_REG->at(LY),
+            m_mmu.IO_REG->at(SCX),
+            m_mmu.IO_REG->at(SCY),
+            m_mmu.IO_REG->at(IF),
+            std::bit_cast<std::array<sprite_attributes, 40>*>(m_mmu.OAM.get()),
+            m_mmu.VRAM.get()),
+        m_timer(&m_mmu, &m_ppu),
+        m_cpu(&m_mmu, &m_timer, m_mmu.IO_REG->at(IF), m_mmu.IE_REG)
     {
-        _mmu->timer = _timer.get();
+        m_mmu.timer = &m_timer;
     }
 
     void GameBoy::update()
     {
-        while(!_ppu->frame_completed())
+        while(!m_ppu.frame_completed())
         {
             if (g_debug)
             {
-                _logs << _cpu->dump();
+                m_logs << m_cpu.dump();
             }
-            _cpu->run();
+            m_cpu.run();
         }
     }
 
     color GameBoy::get_color(int x, int y)
     {
-        return _ppu->get_color(x, y);
+        return m_ppu.get_color(x, y);
     }
 
     void GameBoy::reset_ppu()
     {
-        _ppu->reset();
+        m_ppu.reset();
     }
 
     void GameBoy::init()
     {
-        _mmu->load_boot_rom(boot_rom_path);
-        if (!_rom_path.empty())
+        m_mmu.load_boot_rom(boot_rom_path);
+        if (!m_rom_path.empty())
         {
-            _mmu->load_game_rom(_rom_path);
+            m_mmu.load_game_rom(m_rom_path);
+        }
+    }
+
+    void GameBoy::use_button(GB_BUTTON b, bool released)
+    {
+        uint8_t& r_joy = m_mmu.IO_REG->at(P1_JOYP);
+
+        bool isDirection = (b < 4);
+
+        set_bit(r_joy, 4, isDirection); // direction
+        set_bit(r_joy, 5, !isDirection); // action
+
+        switch (b)
+        {
+        case emulator::GB_UP:
+        case emulator::GB_SELECT:
+            set_bit(r_joy, 2, released);
+            break;
+        case emulator::GB_DOWN:
+        case emulator::GB_START:
+            set_bit(r_joy, 3, released);
+            break;
+        case emulator::GB_RIGHT:
+        case emulator::GB_A:
+            set_bit(r_joy, 0, released);
+            break;
+        case emulator::GB_LEFT:
+        case emulator::GB_B:
+            set_bit(r_joy, 1, released);
+            break;
         }
     }
 }

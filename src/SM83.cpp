@@ -9,15 +9,42 @@ namespace emulator
 {
     template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
 
-    SM83::SM83(MMU* mmu, Timer* t) :
+    SM83::SM83(MMU* mmu, Timer* t, uint8_t& rIF, uint8_t& rIE) :
         m_registers(),
         m_ime(false),
+        m_ime_new_value(false),
+        m_halted(false),
         m_mmu(mmu),
-        m_timer(t)
+        m_timer(t),
+        m_IF(rIF),
+        m_IE(rIE)
     {}
 
     void SM83::run()
     {
+        if (m_halted) 
+        {
+            m_advance_cycle();
+            if ((m_IF & m_IE) != 0)
+            {
+                m_halted = false;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        if (m_ime)
+        {
+            m_isr();
+        }
+
+        if (m_ime_new_value != m_ime)
+        {
+            m_ime = m_ime_new_value;
+        }
+        
         auto opcode = m_fetch();
         auto instr = m_decode(opcode);
         m_execute(instr);
@@ -457,10 +484,10 @@ namespace emulator
         case OP::NOP:
             break;
         case OP::CALL:
-            m_call();
+            m_call(m_fetch_word());
             break;
         case OP::CALL_CC:
-            m_call(m_cc.at(y));
+            m_call(m_fetch_word(), m_cc.at(y));
             break;
         case OP::DAA:
             m_daa();
@@ -510,10 +537,10 @@ namespace emulator
         }
         break;
         case OP::DI:
-            m_ime = false;
+            m_ime_new_value = false;
             break;
         case OP::EI:
-            m_ime = true;
+            m_ime_new_value = true;
             break;
         case OP::HALT:
             m_halt();
@@ -920,7 +947,6 @@ namespace emulator
             m_registers.flags.z = false;
         }
 
-        //m_registers.flags.h = (res > 0xFFF);
         m_registers.flags.c = (res > 0xFFFF);
         m_registers.flags.n = false;
     }
@@ -1058,15 +1084,11 @@ namespace emulator
         m_registers.A = n;
     }
 
-    void SM83::m_call(std::function<bool(void)> cond)
+    void SM83::m_call(uint16_t nn, std::function<bool(void)> cond)
     {
-        uint16_t nn = m_fetch_word();
-
         if (!cond || cond())
         {
-            m_registers.SP -= 2;
-            m_write(m_registers.SP, LSB(m_registers.PC));
-            m_write(m_registers.SP + 1, MSB(m_registers.PC));
+            m_push(m_registers.PC);
             m_registers.PC = nn;
         }
     }
@@ -1094,7 +1116,7 @@ namespace emulator
         uint8_t lsb = m_read(m_registers.SP);
         uint8_t msb = m_read(m_registers.SP + 1);
 
-        if (!cond ||cond())
+        if (!cond || cond())
         {
             m_registers.PC = combine(lsb, msb);
             m_registers.SP += 2;
@@ -1316,7 +1338,16 @@ namespace emulator
 
     void SM83::m_isr()
     {
-
+        m_ime = false;
+        for (int i = 0; i < 5; ++i)
+        {
+            if (is_set_bit(m_IE, i) && is_set_bit(m_IF, i))
+            {
+                m_advance_cycle(2);
+                m_call(0xFF00 + (0x40 + i * 8));
+                clear_bit(m_IF, i);
+            }
+        }
     }
 
     void SM83::m_stop()
@@ -1326,7 +1357,14 @@ namespace emulator
 
     void SM83::m_halt()
     {
-
+        if (m_ime == false && ((m_IF & m_IE) != 0))
+        {
+            // halt bug
+        }
+        else
+        {
+            m_halted = true;
+        }
     }
 
     void SM83::m_advance_cycle(int x)

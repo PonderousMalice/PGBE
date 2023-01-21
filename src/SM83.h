@@ -87,7 +87,7 @@ namespace emulator
     class SM83
     {
     public:
-        SM83(MMU* mmu, Timer* t);
+        SM83(MMU* mmu, Timer* t, uint8_t& rIF, uint8_t& rIE);
 
         void run();
         std::string dump();
@@ -156,7 +156,8 @@ namespace emulator
             uint16_t SP;
             uint16_t PC;
         } m_registers;
-        bool m_ime;
+        bool m_ime, m_ime_new_value, m_halted;
+        uint8_t& m_IF, & m_IE;
 
         OP m_decode(uint8_t opcode);
         void m_execute(OP instr);
@@ -166,7 +167,6 @@ namespace emulator
         uint8_t m_read(uint16_t adr);
         uint16_t m_get_reg_16(reg_s r);
         uint8_t m_get_reg(reg_s r);
-
 
         uint8_t m_fetch();
         uint16_t m_fetch_word();
@@ -221,7 +221,7 @@ namespace emulator
         bool m_c();
 
         // Jump
-        void m_call(std::function<bool(void)> cc = nullptr);
+        void m_call(uint16_t adr, std::function<bool(void)> cc = nullptr);
         void m_jp(std::function<bool(void)> cc = nullptr);
         void m_jr(std::function<bool(void)> cc = nullptr);
         void m_ret(std::function<bool(void)> cc = nullptr);
@@ -237,7 +237,7 @@ namespace emulator
         void m_stop();
         void m_halt();
 
-        reg_t m_get_ptr(reg_s r); 
+        reg_t m_get_ptr(reg_s r);
         uint16_t m_get_value(reg_s n);
 
         const std::array<reg_s, 8> m_r
