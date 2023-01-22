@@ -1,7 +1,4 @@
-#include "const.h"
 #include "GameBoy.h"
-#include <fmt/core.h>
-#include <iostream>
 #include "utils.h"
 
 namespace emulator
@@ -62,7 +59,10 @@ namespace emulator
     void GameBoy::use_button(GB_BUTTON b, bool released)
     {
         uint8_t& r_joy = m_mmu.IO_REG->at(P1_JOYP);
+        uint8_t& r_IF = m_mmu.IO_REG->at(IF);
 
+        set_bit(r_IF, 4);
+        
         bool isDirection = (b < 4);
 
         set_bit(r_joy, 4, isDirection); // direction

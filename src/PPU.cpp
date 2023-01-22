@@ -25,14 +25,14 @@ namespace emulator
 
     void PPU::tick()
     {
-        if (!lcd_enabled())
+        if (!m_lcd_enabled())
         {
             return;
         }
 
         if (!m_line_drawn)
         {
-            draw_line();
+            m_draw_line();
         }
 
         m_cur_cycle_in_scanline++;
@@ -42,13 +42,13 @@ namespace emulator
         case OAM_SCAN:
             if (m_cur_cycle_in_scanline >= 80)
             {
-                switch_mode(DRAWING);
+                m_switch_mode(DRAWING);
             }
             break;
         case DRAWING:
             if (m_cur_cycle_in_scanline >= m_drawing_cycle_nb)
             {
-                switch_mode(H_BLANK);
+                m_switch_mode(H_BLANK);
             }
             break;
         case H_BLANK:
@@ -57,12 +57,12 @@ namespace emulator
                 m_cur_cycle_in_scanline = 0;
                 if (++m_LY >= nb_scanlines - 10)
                 {
-                    switch_mode(V_BLANK);
+                    m_switch_mode(V_BLANK);
                 }
                 else
                 {
                     m_line_drawn = false;
-                    switch_mode(OAM_SCAN);
+                    m_switch_mode(OAM_SCAN);
                 }
             }
             break;
@@ -81,7 +81,7 @@ namespace emulator
         }
     }
 
-    void PPU::draw_line()
+    void PPU::m_draw_line()
     {
         if (m_LY >= 144)
         {
@@ -89,13 +89,13 @@ namespace emulator
             return;
         }
 
-        scan_oam();
+        m_scan_oam();
 
         for (int x_pos = 0; x_pos < viewport_width;)
         {
             // bg fetch
-            auto bg_tile_id = get_tile_id(x_pos);
-            auto bg_tile_data = get_tile_data(bg_tile_id);
+            auto bg_tile_id = m_get_tile_id(x_pos);
+            auto bg_tile_data = m_get_tile_data(bg_tile_id);
             std::array<uint8_t, 2> sprite_tile_data{};
 
             // sprite fetch ~not sure kek
@@ -103,7 +103,7 @@ namespace emulator
             {
                 if (obj.x_pos <= x_pos)
                 {
-                    sprite_tile_data = get_tile_data(obj.tile_id, true);
+                    sprite_tile_data = m_get_tile_data(obj.tile_id, true);
                     break;
                 }
             }
@@ -112,10 +112,10 @@ namespace emulator
 
             for (; i >= 0; --i)
             {
-                auto bg_px = get_pixel(bg_tile_data, i, false);
+                auto bg_px = m_get_pixel(bg_tile_data, i, false);
                 if (!sprite_tile_data.empty())
                 {
-                    auto sprite_px = get_pixel(sprite_tile_data, i, true);
+                    auto sprite_px = m_get_pixel(sprite_tile_data, i, true);
                     
                 }
                 //else
@@ -128,7 +128,7 @@ namespace emulator
         m_line_drawn = true;
     }
 
-    void PPU::scan_oam()
+    void PPU::m_scan_oam()
     {
         // 80 T-Cycles
         for (int i = 0; i < m_oam->size(); ++i)
@@ -143,7 +143,7 @@ namespace emulator
         }
     }
 
-    void PPU::switch_mode(state new_state)
+    void PPU::m_switch_mode(state new_state)
     {
         if (new_state == V_BLANK)
         {
@@ -166,14 +166,14 @@ namespace emulator
 
     void PPU::reset()
     {
-        switch_mode(OAM_SCAN);
+        m_switch_mode(OAM_SCAN);
         m_LY = 0;
         m_window_line_counter = 0;
         m_framebuffer.fill(0);
         m_frame_completed = false;
     }
 
-    uint8_t PPU::get_tile_id(int x_pos)
+    uint8_t PPU::m_get_tile_id(int x_pos)
     {
         // RM
         uint16_t tile_map_adr = 0x9800;
@@ -184,7 +184,7 @@ namespace emulator
 
         uint16_t offset_y, offset_x = ((x_pos / 8) + (m_SCX / 8)) & 0x1F;
 
-        if (window_enabled())
+        if (m_window_enabled())
         {
             offset_y = 32 * (m_window_line_counter / 8);
         }
@@ -199,11 +199,11 @@ namespace emulator
         return m_vram->at(tile_map_adr);
     }
 
-    std::array<uint8_t, 2> PPU::get_tile_data(uint8_t tile_id, bool sprite)
+    std::array<uint8_t, 2> PPU::m_get_tile_data(uint8_t tile_id, bool sprite)
     {
         uint16_t tile_data_adr, offset;
 
-        if (window_enabled())
+        if (m_window_enabled())
         {
             offset = 2 * (m_window_line_counter % 8);
         }
@@ -233,7 +233,7 @@ namespace emulator
         return res;
     }
 
-    fifo_entry PPU::get_pixel(std::array<uint8_t, 2> tile_data, int i, bool sprite)
+    fifo_entry PPU::m_get_pixel(std::array<uint8_t, 2> tile_data, int i, bool sprite)
     {
         uint8_t bit_low = (tile_data.at(0) & (1 << i)) >> i;
         uint8_t bit_high = (tile_data.at(1) & (1 << i)) >> i;

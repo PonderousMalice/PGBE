@@ -30,8 +30,8 @@ namespace emulator
         OAM->fill(0);
         IO_REG->fill(0);
         HRAM->fill(0);
-        _dma_bus_conflict = false;
-        _boot_rom_enabled = true;
+        m_dma_bus_conflict = false;
+        m_boot_rom_enabled = true;
         timer = nullptr;
     }
 
@@ -71,9 +71,9 @@ namespace emulator
                 // start transfer in 4 cycles
                 break;
             case BANK:
-                if (_boot_rom_enabled && v == 0)
+                if (m_boot_rom_enabled && v == 0)
                 {
-                    _boot_rom_enabled = false;
+                    m_boot_rom_enabled = false;
                 }
                 break;
             }
@@ -84,7 +84,7 @@ namespace emulator
     {
         if (0x0000 <= gb_adr && gb_adr <= 0x3FFF)
         {
-            if (gb_adr < 0x0100 && _boot_rom_enabled)
+            if (gb_adr < 0x0100 && m_boot_rom_enabled)
             {
                 return BOOT_ROM->data() + gb_adr;
             }
@@ -161,7 +161,7 @@ namespace emulator
         return (gb_adr < 0x4000) // ROM 
             || (0x8000 <= gb_adr && gb_adr <= 0x9FFF && (stat.flags.ppu_mode > 2)) // VRAM
             || (0xFE00 <= gb_adr && gb_adr <= 0xFE9F && (stat.flags.ppu_mode > 1)) // OAM
-            || !(0xFF00 <= gb_adr && gb_adr <= 0xFFFE) && _dma_bus_conflict;
+            || !(0xFF00 <= gb_adr && gb_adr <= 0xFFFE) && m_dma_bus_conflict;
     }
 }
 

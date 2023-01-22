@@ -8,6 +8,7 @@ using std::placeholders::_1;
 namespace emulator
 {
     using reg_t = std::variant<uint8_t*, uint16_t*>;
+    using reg_v = std::variant<uint8_t, uint16_t>;
 
     enum reg_name
     {
@@ -165,13 +166,12 @@ namespace emulator
 
         // Memory access
         uint8_t m_read(uint16_t adr);
-        uint16_t m_get_reg_16(reg_s r);
-        uint8_t m_get_reg(reg_s r);
-
         uint8_t m_fetch();
         uint16_t m_fetch_word();
         void m_write(uint16_t adr, uint8_t v);
-        void m_set_reg(reg_s r, uint16_t v);
+
+        reg_v m_get_reg(reg_s r);
+        void m_set_reg(reg_s r, reg_v v);
 
         // Interrupt handler
         void m_isr();

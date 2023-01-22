@@ -159,7 +159,7 @@ namespace emulator
         uint8_t IE_REG;
         Timer* timer;
     private:
-        bool _dma_bus_conflict;
-        bool _boot_rom_enabled;
+        bool m_dma_bus_conflict;
+        bool m_boot_rom_enabled;
     };
 }

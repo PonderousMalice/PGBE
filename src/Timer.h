@@ -19,12 +19,12 @@ namespace emulator
 
         void advance_cycle();
     private:
-        void add_timer(int duration, std::function<void()> callback);
-        void update_clock();
-        void check_timers();
-        bool timer_enabled();
+        void m_add_timer(int duration, std::function<void()> callback);
+        void m_update_clock();
+        void m_check_timers();
+        bool m_timer_enabled();
 
-        void tima_overflow();
+        void m_tima_overflow();
 
         MMU* m_mmu;
         PPU* m_ppu;

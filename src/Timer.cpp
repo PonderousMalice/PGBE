@@ -20,7 +20,7 @@ namespace emulator
     }
 
 
-    void Timer::add_timer(int duration, std::function<void()> callback)
+    void Timer::m_add_timer(int duration, std::function<void()> callback)
     {
         ClockWatch t
         {
@@ -32,7 +32,7 @@ namespace emulator
         m_timers.push_back(t);
     }
 
-    void Timer::update_clock()
+    void Timer::m_update_clock()
     {
         static const std::array<int, 4> _bit_pos
         {
@@ -47,7 +47,7 @@ namespace emulator
         // TIMA is fucked up dude
         int pos = _bit_pos.at(m_tac & 0b0011);
         bool div_bit = (m_internal_div >> pos) & 0b0001;
-        bool and_res = div_bit && timer_enabled();
+        bool and_res = div_bit && m_timer_enabled();
         if (!and_res && m_prev_and_res)
         {
             ++m_tima;
@@ -56,7 +56,7 @@ namespace emulator
         m_prev_and_res = and_res;
         if (m_prev_tima == 0xFF && m_tima == 0x00)
         {
-            add_timer(4, std::bind(&Timer::tima_overflow, this));
+            m_add_timer(4, std::bind(&Timer::m_tima_overflow, this));
         }
     }
 
@@ -64,18 +64,18 @@ namespace emulator
     {
         for (int i = 0; i < 4; ++i)
         {
-            check_timers();
-            update_clock();
+            m_check_timers();
+            m_update_clock();
             m_ppu->tick();
         }
     }
 
-    bool Timer::timer_enabled()
+    bool Timer::m_timer_enabled()
     {
         return (m_tac >> 2) & 0x01;
     }
 
-    void Timer::check_timers()
+    void Timer::m_check_timers()
     {
         for (auto it = m_timers.begin(); it != m_timers.end();)
         {
@@ -91,7 +91,7 @@ namespace emulator
         }
     }
 
-    void Timer::tima_overflow()
+    void Timer::m_tima_overflow()
     {
         set_bit(m_IF, 2);
         m_tima = m_tma;

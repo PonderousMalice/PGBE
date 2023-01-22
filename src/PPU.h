@@ -69,20 +69,20 @@ namespace emulator
             V_BLANK = 1, // Mode 1
         } m_state;
 
-        void draw_line();
-        void scan_oam();
-        void switch_mode(state new_state);
-        uint8_t get_tile_id(int x_pos);
-        std::array<uint8_t, 2> get_tile_data(uint8_t tile_id, bool sprite = false);
+        void m_draw_line();
+        void m_scan_oam();
+        void m_switch_mode(state new_state);
+        uint8_t m_get_tile_id(int x_pos);
+        std::array<uint8_t, 2> m_get_tile_data(uint8_t tile_id, bool sprite = false);
 
-        fifo_entry get_pixel(std::array<uint8_t, 2> tile_data, int i, bool sprite);
+        fifo_entry m_get_pixel(std::array<uint8_t, 2> tile_data, int i, bool sprite);
 
-        bool window_enabled()
+        bool m_window_enabled()
         {
             return m_LCDC.flags.win_enable;
         }
 
-        bool lcd_enabled()
+        bool m_lcd_enabled()
         {
             return m_LCDC.flags.lcd_ppu_enable;
         }
