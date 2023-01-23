@@ -1394,9 +1394,9 @@ namespace emulator
         }
     }
 
-    void SM83::m_advance_cycle(int x)
+    void SM83::m_advance_cycle(int m_cycles)
     {
-        for (int i = 0; i < x; ++i)
+        for (int i = 0; i < m_cycles; ++i)
         {
             m_timer->advance_cycle();
         }

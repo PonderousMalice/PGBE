@@ -44,11 +44,11 @@ namespace emulator
 
     void  MMU::write(uint16_t adr, uint8_t v)
     {
-        ////  HRAM is not affected by DMA transfers
-        //if (is_locked(adr))
-        //{
-        //    return;
-        //}
+        //  HRAM is not affected by DMA transfers
+        if (is_locked(adr))
+        {
+            return;
+        }
 
         auto p = get_host_adr(adr);
         if (p != nullptr)

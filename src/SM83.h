@@ -162,7 +162,7 @@ namespace emulator
 
         OP m_decode(uint8_t opcode);
         void m_execute(OP instr);
-        void m_advance_cycle(int x = 1);
+        void m_advance_cycle(int m_cycles = 1);
 
         // Memory access
         uint8_t m_read(uint16_t adr);
@@ -235,9 +235,6 @@ namespace emulator
         // Special
         void m_stop();
         void m_halt();
-
-        reg_t m_get_ptr(reg_s r);
-        uint16_t m_get_value(reg_s n);
 
         const std::array<reg_s, 8> m_r
         {
