@@ -592,7 +592,7 @@ namespace emulator
             m_rrca();
             break;
         case OP::RST:
-            m_rst(y);
+            m_call(y * 8);
             break;
         case OP::STOP:
             m_stop();
@@ -1140,16 +1140,6 @@ namespace emulator
         }
     }
 
-    void SM83::m_rst(uint8_t y)
-    {
-        uint16_t nn = y * 8;
-
-        m_registers.SP -= 2;
-        m_write(m_registers.SP, LSB(m_registers.PC));
-        m_write(m_registers.SP + 1, MSB(m_registers.PC));
-        m_registers.PC = nn;
-    }
-
     void SM83::m_reti()
     {
         m_ret();
@@ -1329,6 +1319,11 @@ namespace emulator
 
     std::string SM83::dump()
     {
+        if (m_registers.PC < 0x100)
+        {
+            return "";
+        }
+
         std::string res =
             fmt::format("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X}",
                 m_registers.A, m_registers.F, m_registers.B, m_registers.C, m_registers.D, m_registers.E,

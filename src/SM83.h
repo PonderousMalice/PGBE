@@ -226,7 +226,6 @@ namespace emulator
         void m_jr(std::function<bool(void)> cc = nullptr);
         void m_ret(std::function<bool(void)> cc = nullptr);
         void m_reti();
-        void m_rst(uint8_t y);
 
         // Bit op
         void m_bit(uint8_t v, uint8_t i);

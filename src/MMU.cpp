@@ -44,11 +44,11 @@ namespace emulator
 
     void  MMU::write(uint16_t adr, uint8_t v)
     {
-        //  HRAM is not affected by DMA transfers
-        if (is_locked(adr))
-        {
-            return;
-        }
+        ////  HRAM is not affected by DMA transfers
+        //if (is_locked(adr))
+        //{
+        //    return;
+        //}
 
         auto p = get_host_adr(adr);
         if (p != nullptr)
@@ -71,7 +71,7 @@ namespace emulator
                 // start transfer in 4 cycles
                 break;
             case BANK:
-                if (m_boot_rom_enabled && v == 0)
+                if (m_boot_rom_enabled && v == 1)
                 {
                     m_boot_rom_enabled = false;
                 }
