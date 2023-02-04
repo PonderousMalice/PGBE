@@ -42,6 +42,7 @@ namespace emulator
     {
         enum
         {
+            INVALID,
             ALU,
             ADD_16,
             BIT,
@@ -88,7 +89,7 @@ namespace emulator
     class SM83
     {
     public:
-        SM83(MMU* mmu, Timer* t, uint8_t& rIF, uint8_t& rIE);
+        SM83(MMU* mmu, Timer* t);
 
         void run();
         std::string dump();
@@ -157,8 +158,10 @@ namespace emulator
             uint16_t SP;
             uint16_t PC;
         } m_registers;
-        bool m_ime, m_ime_new_value, m_halted;
+        bool m_ime, m_halted, m_halt_bug;
         uint8_t& m_IF, & m_IE;
+
+        OP m_prev_op;
 
         OP m_decode(uint8_t opcode);
         void m_execute(OP instr);

@@ -5,6 +5,7 @@
 
 namespace emulator
 {
+    // task ? promise ? Waiter ?
     struct ClockWatch
     {
         int count;
@@ -16,10 +17,12 @@ namespace emulator
     {
     public:
         Timer(MMU* mmu, PPU* ppu);
-
+        
+        // schedule task ?
+        void add_timer(int duration, std::function<void()> callback);
         void advance_cycle();
     private:
-        void m_add_timer(int duration, std::function<void()> callback);
+        
         void m_update_clock();
         void m_check_timers();
         bool m_timer_enabled();

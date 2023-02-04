@@ -10,15 +10,15 @@ namespace emulator
     {
         struct
         {
-            uint8_t bg_win_enable_prio : 1;
+            uint8_t bg_win_enable : 1;
             uint8_t obj_enable : 1;
             uint8_t obj_size : 1;
-            uint8_t bg_tile_map_area : 1;
-            uint8_t bg_win_tile_data_area : 1;
+            uint8_t bg_tile_map_select : 1;
+            uint8_t tile_data_select : 1; 
             uint8_t win_enable : 1;
-            uint8_t win_tile_map_area : 1;
-            uint8_t lcd_ppu_enable : 1;
-        } flags;
+            uint8_t win_tile_map_select : 1;
+            uint8_t ppu_enable : 1;
+        };
         uint8_t v;
     };
 
@@ -32,9 +32,9 @@ namespace emulator
             uint8_t mode_1_interupt : 1;
             uint8_t mode_2_interupt : 1;
             uint8_t lcy_ly_interupt : 1;
-            uint8_t padding : 1;
+            uint8_t unused : 1;
 
-        } flags;
+        };
         uint8_t v;
     };
 
@@ -118,10 +118,12 @@ namespace emulator
         SCX = 0x43, // Viewport X postion
         LY = 0x44, // LCD Y coordinate [read-only]
         LYC = 0x45, // LY compare
+        BGP = 0x47, // BG palette data
+        OBP0 = 0x48, // OBJ palette 0
+        OBP1 = 0x49, // OBJ palette 1
         WY = 0x4A, // Window Y postion
         WX = 0x4B, // Window X position +7
-        BGP = 0x47, // BG palette data
-
+       
         // SPECIAL
         DMA = 0x46,
         BANK = 0x50,
@@ -146,20 +148,22 @@ namespace emulator
         void load_boot_rom(std::string path);
         void load_game_rom(std::string path);
 
-        std::unique_ptr<std::array<uint8_t, 0x0100>> BOOT_ROM;
-        std::unique_ptr<std::array<uint8_t, 0x4000>> ROM_BANK_00;
-        std::unique_ptr<std::array<uint8_t, 0x4000>> ROM_BANK_01;
-        std::unique_ptr<std::array<uint8_t, 0x2000>> VRAM;
-        std::unique_ptr<std::array<uint8_t, 0x2000>> EXT_RAM;
-        std::unique_ptr<std::array<uint8_t, 0x2000>> WRAM;
-        std::unique_ptr<std::array<uint8_t, 0x00A0>> OAM;
-        std::unique_ptr<std::array<uint8_t, 0x0080>> IO_REG;
-        std::unique_ptr<std::array<uint8_t, 0x007F>> HRAM;
-        uint16_t INTERNAL_DIV;
-        uint8_t IE_REG;
+        std::unique_ptr<std::array<uint8_t, 0x0100>> boot_rom;
+        std::unique_ptr<std::array<uint8_t, 0x4000>> rom_bank_00;
+        std::unique_ptr<std::array<uint8_t, 0x4000>> rom_bank_01;
+        std::unique_ptr<std::array<uint8_t, 0x2000>> vram;
+        std::unique_ptr<std::array<uint8_t, 0x2000>> ext_ram;
+        std::unique_ptr<std::array<uint8_t, 0x2000>> wram;
+        std::unique_ptr<std::array<uint8_t, 0x00A0>> oam;
+        std::unique_ptr<std::array<uint8_t, 0x0080>> io_reg;
+        std::unique_ptr<std::array<uint8_t, 0x007F>> hram;
+        uint16_t internal_div;
+        uint8_t ie_reg;
         Timer* timer;
     private:
         bool m_dma_bus_conflict;
         bool m_boot_rom_enabled;
+
+        STAT_REG& m_STAT;
     };
 }

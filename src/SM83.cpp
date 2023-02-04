@@ -9,25 +9,32 @@ namespace emulator
 {
     template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
 
-    SM83::SM83(MMU* mmu, Timer* t, uint8_t& rIF, uint8_t& rIE) :
+    SM83::SM83(MMU* mmu, Timer* t) :
         m_registers(),
         m_ime(false),
-        m_ime_new_value(false),
         m_halted(false),
+        m_halt_bug(false),
         m_mmu(mmu),
         m_timer(t),
-        m_IF(rIF),
-        m_IE(rIE)
+        m_IF(mmu->io_reg->at(IF)),
+        m_IE(mmu->ie_reg)
     {}
 
     void SM83::run()
     {
+        if (m_halt_bug)
+        {
+            m_halt_bug = false;
+            m_registers.PC--;
+        }
+
         if (m_halted)
         {
             m_advance_cycle();
-            if ((m_IF & m_IE) != 0)
+            if ((m_IF & m_IE & 0x1F) != 0)
             {
                 m_halted = false;
+                m_advance_cycle();
             }
             else
             {
@@ -40,6 +47,8 @@ namespace emulator
         auto opcode = m_fetch();
         auto instr = m_decode(opcode);
         m_execute(instr);
+
+        m_prev_op = instr;
     }
 
     OP SM83::m_decode(uint8_t opcode)
@@ -407,6 +416,7 @@ namespace emulator
                         break;
                     default:
                         // Illegal OP
+                        res.name = OP::INVALID;
                         break;
                     }
                     break;
@@ -444,6 +454,11 @@ namespace emulator
 
     void SM83::m_execute(OP instr)
     {
+        if (instr.name == OP::INVALID)
+        {
+            exit(666);
+        }
+
         uint8_t y = instr.y;
         auto arg1 = instr.args[0];
         auto arg2 = instr.args[1];
@@ -529,10 +544,9 @@ namespace emulator
         }
         break;
         case OP::DI:
-            m_ime_new_value = false;
+            m_ime = false;
             break;
         case OP::EI:
-            m_ime_new_value = true;
             break;
         case OP::HALT:
             m_halt();
@@ -619,11 +633,6 @@ namespace emulator
     uint8_t SM83::m_read(uint16_t adr)
     {
         m_advance_cycle();
-        if (adr == 0xFF44 && g_debug)
-        {
-            return 0x90;
-        }
-
         return m_mmu->read(adr);
     }
 
@@ -1339,7 +1348,7 @@ namespace emulator
             {
                 res += fmt::format(" ");
             }
-            res += fmt::format("{:02X}", m_read(m_registers.PC + i));
+            res += fmt::format("{:02X}", m_mmu->read(m_registers.PC + i));
         }
 
         res += fmt::format(")\n");
@@ -1367,13 +1376,13 @@ namespace emulator
                 m_ime = false;
                 m_advance_cycle(2);
                 clear_bit(m_IF, i);
-                m_call(0xFF00 + (0x40 + i * 8));
+                m_call(0x40 + i * 8);
             }
         }
 
-        if (m_ime_new_value != m_ime)
+        if (m_prev_op.name == OP::EI)
         {
-            m_ime = m_ime_new_value;
+            m_ime = true;
         }
     }
 
@@ -1384,9 +1393,9 @@ namespace emulator
 
     void SM83::m_halt()
     {
-        if (m_ime == false && ((m_IF & m_IE) != 0))
+        if (m_ime == false && ((m_IF & m_IE & 0x1F) != 0))
         {
-            // halt bug
+            m_halt_bug = true;
         }
         else
         {

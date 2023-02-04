@@ -9,18 +9,11 @@ namespace emulator
 
     GameBoy::GameBoy(std::string_view rom_path) :
         m_rom_path(rom_path),
-        m_logs(log_file_path),
+        m_logs(LOG_FILE_PATH),
         m_mmu(),
-        m_ppu((LCD_C&)m_mmu.IO_REG->at(LCDC),
-            (STAT_REG&)m_mmu.IO_REG->at(STAT),
-            m_mmu.IO_REG->at(LY),
-            m_mmu.IO_REG->at(SCX),
-            m_mmu.IO_REG->at(SCY),
-            m_mmu.IO_REG->at(IF),
-            std::bit_cast<std::array<sprite_attributes, 40>*>(m_mmu.OAM.get()),
-            m_mmu.VRAM.get()),
+        m_ppu(&m_mmu),
         m_timer(&m_mmu, &m_ppu),
-        m_cpu(&m_mmu, &m_timer, m_mmu.IO_REG->at(IF), m_mmu.IE_REG)
+        m_cpu(&m_mmu, &m_timer)
     {
         m_mmu.timer = &m_timer;
     }
@@ -29,9 +22,9 @@ namespace emulator
     {
         while(!m_ppu.frame_completed())
         {
-            if (g_debug)
+            if (DEBUG_LOG_ENABLED)
             {
-                m_logs << m_cpu.dump();
+                m_logs << m_cpu.dump() << std::flush;
             }
             m_cpu.run();
         }
@@ -49,7 +42,7 @@ namespace emulator
 
     void GameBoy::init()
     {
-        m_mmu.load_boot_rom(boot_rom_path);
+        m_mmu.load_boot_rom(BOOT_ROM_PATH);
         if (!m_rom_path.empty())
         {
             m_mmu.load_game_rom(m_rom_path);
@@ -58,8 +51,8 @@ namespace emulator
 
     void GameBoy::use_button(GB_BUTTON b, bool released)
     {
-        uint8_t& r_joy = m_mmu.IO_REG->at(P1_JOYP);
-        uint8_t& r_IF = m_mmu.IO_REG->at(IF);
+        uint8_t& r_joy = m_mmu.io_reg->at(P1_JOYP);
+        uint8_t& r_IF = m_mmu.io_reg->at(IF);
 
         set_bit(r_IF, 4);
         

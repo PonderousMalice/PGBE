@@ -40,7 +40,7 @@ namespace emulator
 
             auto end = high_resolution_clock::now();
             double elapsed_time = duration_cast<milliseconds>(end - run).count();
-            auto sleep_time = frame_duration_ms - elapsed_time;
+            auto sleep_time = FRAME_DURATION_MS - elapsed_time;
 
             std::this_thread::sleep_for(sleep_time * 1ms);
         }
@@ -54,13 +54,13 @@ namespace emulator
             exit(1);
         }
 
-        if (SDL_CreateWindowAndRenderer(window_width, window_height, SDL_WINDOW_RESIZABLE, &m_window, &m_renderer) < 0)
+        if (SDL_CreateWindowAndRenderer(WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE, &m_window, &m_renderer) < 0)
         {
             fmt::print("SDL could not create window and/or renderer! SDL_Error: {}", SDL_GetError());
             exit(1);
         }
 
-        SDL_RenderSetLogicalSize(m_renderer, viewport_width, viewport_height);
+        SDL_RenderSetLogicalSize(m_renderer, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 
         gb->init();
     }
@@ -122,9 +122,9 @@ namespace emulator
     {
         SDL_RenderClear(m_renderer);
 
-        for (int y = 0; y < viewport_height; ++y)
+        for (int y = 0; y < VIEWPORT_HEIGHT; ++y)
         {
-            for (int x = 0; x < viewport_width; ++x)
+            for (int x = 0; x < VIEWPORT_WIDTH; ++x)
             {
                 auto color = gb->get_color(x, y);
                 SDL_SetRenderDrawColor(m_renderer, color.r, color.g, color.b, 255);

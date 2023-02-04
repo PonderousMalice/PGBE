@@ -6,12 +6,12 @@ namespace emulator
     Timer::Timer(MMU* mmu, PPU* ppu) :
         m_ppu(ppu),
         m_mmu(mmu),
-        m_div(mmu->IO_REG->at(DIV)),
-        m_tima(mmu->IO_REG->at(TIMA)),
-        m_tma(mmu->IO_REG->at(TMA)),
-        m_tac(mmu->IO_REG->at(TAC)),
-        m_internal_div(mmu->INTERNAL_DIV),
-        m_IF(mmu->IO_REG->at(IF)),
+        m_div(mmu->io_reg->at(DIV)),
+        m_tima(mmu->io_reg->at(TIMA)),
+        m_tma(mmu->io_reg->at(TMA)),
+        m_tac(mmu->io_reg->at(TAC)),
+        m_internal_div(mmu->internal_div),
+        m_IF(mmu->io_reg->at(IF)),
         m_timers()
     {
         m_div = 0;
@@ -20,8 +20,8 @@ namespace emulator
         m_prev_tima = 0;
     }
 
-
-    void Timer::m_add_timer(int duration, std::function<void()> callback)
+    // waiter or schedule_task ?
+    void Timer::add_timer(int duration, std::function<void()> callback)
     {
         ClockWatch t
         {
@@ -35,7 +35,7 @@ namespace emulator
 
     void Timer::m_update_clock()
     {
-        static const std::array<int, 4> _bit_pos
+        const std::array<int, 4> _bit_pos
         {
             9,
             3,
@@ -57,7 +57,7 @@ namespace emulator
         m_prev_and_res = and_res;
         if (m_prev_tima == 0xFF && m_tima == 0x00)
         {
-            m_add_timer(4, std::bind(&Timer::m_tima_overflow, this));
+            add_timer(4, std::bind(&Timer::m_tima_overflow, this));
         }
     }
 
