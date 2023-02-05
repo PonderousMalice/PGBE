@@ -115,12 +115,11 @@ namespace emulator
         void m_switch_mode(state new_state);
         uint8_t m_get_tile_id(int x_pos);
         std::array<uint8_t, 2> m_get_tile_data(uint8_t tile_id);
-        std::array<uint8_t, 2> m_get_obj_tile_data(uint8_t tile_id);
 
         fifo_entry m_get_pixel(std::array<uint8_t, 2> tile_data, int i, bool sprite, bool palette = false);
 
         color m_get_entry_color(fifo_entry entry);
 
-        fifo_entry m_fetch_obj(const sprite_attributes& obj, int x_pos);
+        fifo_entry m_fetch_obj(sprite_attributes obj, int x_pos);
     };
 }

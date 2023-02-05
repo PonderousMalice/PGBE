@@ -152,19 +152,16 @@ namespace emulator
             if (obj_index >= 0 && nb_rendered_obj < 10)
             {
                 auto& obj = m_sprite_buffer[obj_index];
-                auto sprite_tile_data = m_get_obj_tile_data(obj.tile_id);
 
                 for (int i = 0; i < 8; ++i)
                 {
-                    //int xx = obj.flags.x_flip ? (x_pos + (7 - i)) : (x_pos + i);
-
                     if ((x_pos + i) >= VIEWPORT_WIDTH)
                     {
                         break;
                     }
 
-                    //auto obj_px = m_get_pixel(sprite_tile_data, xx, true, obj.flags.palette_nb);
                     auto obj_px = m_fetch_obj(obj, (x_pos + i));
+
                     bg_tile_id = m_get_tile_id((x_pos + i)); // maybe useless
                     bg_px = m_get_pixel(bg_tile_data, (x_pos + i), false);
 
@@ -305,22 +302,6 @@ namespace emulator
         return res;
     }
 
-    std::array<uint8_t, 2> PPU::m_get_obj_tile_data(uint8_t tile_id)
-    {
-        uint16_t tile_data_adr, offset;
-
-        offset = 2 * ((m_LY + m_SCY) % 8);
-        tile_data_adr = TILE_DATA_1 + tile_id * 16;
-
-        std::array<uint8_t, 2> res
-        {
-            m_vram->at(tile_data_adr + offset),
-            m_vram->at(tile_data_adr + offset + 1)
-        };
-
-        return res;
-    }
-
     fifo_entry PPU::m_get_pixel(std::array<uint8_t, 2> tile_data, int x_pos, bool sprite, bool palette)
     {
         int i = 7 - (x_pos % 8);
@@ -420,11 +401,15 @@ namespace emulator
         }
     }
 
-
-    fifo_entry PPU::m_fetch_obj(const sprite_attributes& obj, int x_pos)
+    fifo_entry PPU::m_fetch_obj(sprite_attributes obj, int x_pos)
     {
-        // TO FIX Y-Flip
         uint16_t offset = 2 * ((m_LY + m_SCY) % 8);
+
+        if (obj.flags.y_flip)
+        {
+            offset = 2 * (7 - ((m_LY + m_SCY) % 8));
+        }
+
         uint16_t tile_data_adr = TILE_DATA_1 + obj.tile_id * 16;
 
         std::array<uint8_t, 2> tile_data
