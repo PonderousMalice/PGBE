@@ -78,7 +78,7 @@ namespace emulator
                     m_switch_mode(OAM_SCAN);
                 }
 
-                m_stat_triggered = false;
+                //m_stat_triggered = false;
                 m_check_coincidence();
             }
             break;
@@ -116,7 +116,7 @@ namespace emulator
 
         for (int x_pos = 0; x_pos < VIEWPORT_WIDTH; x_pos++)
         {
-            if (m_LCDC.win_enable == 1 && m_win_reached_once && x_pos >= m_WX - 7)
+            if ((m_LCDC.win_enable == 1) && m_win_reached_once && (x_pos >= (m_WX - 7)))
             {
                 m_fetch_win = true;
                 increase_win_c = true;
@@ -345,15 +345,16 @@ namespace emulator
 
         if (any_condition_met)
         {
-            if (m_stat_triggered)
-            {
-               // m_stat_triggered = false;
-            }
-            else
+            if (!m_stat_triggered)
             {
                 set_bit(m_IF, 1);
-                m_stat_triggered = true;
             }
+
+            m_stat_triggered = true;
+        }
+        else
+        {
+            m_stat_triggered = false;
         }
     }
 
