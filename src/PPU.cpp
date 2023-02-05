@@ -21,7 +21,6 @@ namespace emulator
         m_window_line_counter(0),
         m_cur_cycle_in_scanline(0),
         m_frame_completed(false),
-        m_line_drawn(false),
         m_win_reached_once(false),
         m_stat_triggered(false),
         m_fetch_win(false),
@@ -63,11 +62,7 @@ namespace emulator
             {
                 m_cur_cycle_in_scanline = 0;
 
-                // delete m_line_drawn
-                if (!m_line_drawn)
-                {
-                    m_draw_line();
-                }
+                m_draw_line();
 
                 if (++m_LY >= NB_SCANLINES - 10)
                 {
@@ -75,11 +70,9 @@ namespace emulator
                 }
                 else
                 {
-                    m_line_drawn = false;
                     m_switch_mode(OAM_SCAN);
                 }
 
-                //m_stat_triggered = false;
                 m_check_coincidence();
             }
             break;
@@ -100,12 +93,6 @@ namespace emulator
 
     void PPU::m_draw_line()
     {
-        if (m_LY >= 144)
-        {
-            m_line_drawn = true;
-            return;
-        }
-
         if (m_LY == m_WY)
         {
             m_win_reached_once = true;
@@ -128,10 +115,8 @@ namespace emulator
                 m_fetch_win = false;
             }
 
-            auto bg_tile_id = m_get_tile_id(x_pos);
-            auto bg_tile_data = m_get_tile_data(bg_tile_id);
+            auto bg_px = m_fetch_bg(x_pos);
 
-            auto bg_px = m_get_pixel(bg_tile_data, x_pos, false);
             m_framebuffer.at(x_pos + m_LY * VIEWPORT_WIDTH) = m_get_entry_color(bg_px);
 
             if (m_LCDC.obj_enable != 1)
@@ -161,9 +146,7 @@ namespace emulator
                     }
 
                     auto obj_px = m_fetch_obj(obj, (x_pos + i));
-
-                    bg_tile_id = m_get_tile_id((x_pos + i)); // maybe useless
-                    bg_px = m_get_pixel(bg_tile_data, (x_pos + i), false);
+                    bg_px = m_fetch_bg(x_pos + i);
 
                     bool pick_bg =
                         (obj_px.color == 0) ||
@@ -181,8 +164,6 @@ namespace emulator
         {
             m_window_line_counter++;
         }
-
-        m_line_drawn = true;
     }
 
     void PPU::m_scan_oam()
@@ -236,93 +217,7 @@ namespace emulator
         m_window_line_counter = 0;
         m_framebuffer.fill({ 0, 0, 0 });
         m_frame_completed = false;
-        m_line_drawn = false;
         m_win_reached_once = false;
-    }
-
-    uint8_t PPU::m_get_tile_id(int x_pos)
-    {
-        uint16_t tile_map_adr = TILE_MAP_1;
-        uint16_t offset_y, offset_x;
-
-        if (m_fetch_win)
-        {
-            offset_x = (x_pos / 8) & 0x1F;
-            offset_y = 32 * (m_window_line_counter / 8);
-
-            if (m_LCDC.win_tile_map_select == 1)
-            {
-                tile_map_adr = TILE_MAP_2;
-            }
-        }
-        else
-        {
-            offset_x = ((x_pos / 8) + (m_SCX / 8)) & 0x1F;
-            offset_y = 32 * (((m_LY + m_SCY) & 0xFF) / 8);
-
-            if (m_LCDC.bg_tile_map_select == 1)
-            {
-                tile_map_adr = TILE_MAP_2;
-            }
-        }
-
-        tile_map_adr += (offset_x + offset_y) & 0x3FF;
-
-        return m_vram->at(tile_map_adr);
-    }
-
-    std::array<uint8_t, 2> PPU::m_get_tile_data(uint8_t tile_id)
-    {
-        uint16_t tile_data_adr, offset;
-
-        if (m_fetch_win)
-        {
-            offset = 2 * (m_window_line_counter % 8);
-        }
-        else
-        {
-            offset = 2 * ((m_LY + m_SCY) % 8);
-        }
-
-        if (m_LCDC.tile_data_select == 1)
-        {
-            tile_data_adr = TILE_DATA_1 + tile_id * 16;
-        }
-        else
-        {
-            tile_data_adr = TILE_DATA_2 + (int8_t)(tile_id * 16);
-        }
-
-        std::array<uint8_t, 2> res
-        {
-            m_vram->at(tile_data_adr + offset),
-            m_vram->at(tile_data_adr + offset + 1)
-        };
-
-        return res;
-    }
-
-    fifo_entry PPU::m_get_pixel(std::array<uint8_t, 2> tile_data, int x_pos, bool sprite, bool palette)
-    {
-        int i = 7 - (x_pos % 8);
-
-        if ((x_pos < (7 - (m_SCX % 8))) && !sprite)
-        {
-            i = 7 - (m_SCX % 8) - x_pos;
-        }
-
-        uint8_t bit_low = (tile_data.at(0) & (1 << i)) >> i;
-        uint8_t bit_high = (tile_data.at(1) & (1 << i)) >> i;
-        bit_high <<= 1;
-
-        fifo_entry entry
-        {
-            .type = sprite,
-            .palette = palette,
-            .color = (uint8_t)(bit_low + bit_high)
-        };
-
-        return entry;
     }
 
     color PPU::m_get_entry_color(fifo_entry entry)
@@ -432,6 +327,83 @@ namespace emulator
         {
             .type = 1,
             .palette = obj.flags.palette_nb,
+            .color = (uint8_t)(bit_low + bit_high)
+        };
+
+        return entry;
+    }
+
+    fifo_entry PPU::m_fetch_bg(int x_pos)
+    {
+        uint16_t tile_map_adr = TILE_MAP_1;
+        uint16_t offset_y, offset_x;
+
+        if (m_fetch_win)
+        {
+            offset_x = (x_pos / 8) & 0x1F;
+            offset_y = 32 * (m_window_line_counter / 8);
+
+            if (m_LCDC.win_tile_map_select == 1)
+            {
+                tile_map_adr = TILE_MAP_2;
+            }
+        }
+        else
+        {
+            offset_x = ((x_pos / 8) + (m_SCX / 8)) & 0x1F;
+            offset_y = 32 * (((m_LY + m_SCY) & 0xFF) / 8);
+
+            if (m_LCDC.bg_tile_map_select == 1)
+            {
+                tile_map_adr = TILE_MAP_2;
+            }
+        }
+
+        tile_map_adr += (offset_x + offset_y) & 0x3FF;
+
+        uint8_t tile_id = m_vram->at(tile_map_adr);
+
+        uint16_t tile_data_adr, offset;
+
+        if (m_fetch_win)
+        {
+            offset = 2 * (m_window_line_counter % 8);
+        }
+        else
+        {
+            offset = 2 * ((m_LY + m_SCY) % 8);
+        }
+
+        if (m_LCDC.tile_data_select == 1)
+        {
+            tile_data_adr = TILE_DATA_1 + tile_id * 16;
+        }
+        else
+        {
+            tile_data_adr = TILE_DATA_2 + (int8_t)(tile_id * 16);
+        }
+
+        std::array<uint8_t, 2> tile_data
+        {
+            m_vram->at(tile_data_adr + offset),
+            m_vram->at(tile_data_adr + offset + 1)
+        };
+
+        int i = 7 - (x_pos % 8);
+
+        if ((x_pos < (7 - (m_SCX % 8))))
+        {
+            i = 7 - (m_SCX % 8) - x_pos;
+        }
+
+        uint8_t bit_low = (tile_data.at(0) & (1 << i)) >> i;
+        uint8_t bit_high = (tile_data.at(1) & (1 << i)) >> i;
+        bit_high <<= 1;
+
+        fifo_entry entry
+        {
+            .type = 0,
+            .palette = 0,
             .color = (uint8_t)(bit_low + bit_high)
         };
 

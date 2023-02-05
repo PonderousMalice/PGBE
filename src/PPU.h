@@ -94,7 +94,6 @@ namespace emulator
         int m_window_line_counter;
         int m_drawing_cycle_nb;
         bool m_frame_completed;
-        bool m_line_drawn;
         bool m_win_reached_once;
         bool m_fetch_win;
         bool m_stat_triggered;
@@ -107,19 +106,16 @@ namespace emulator
             V_BLANK = 1, // Mode 1
         } m_state;
 
-
         void m_check_coincidence();
         void m_check_stat();
+
         void m_draw_line();
         void m_scan_oam();
         void m_switch_mode(state new_state);
-        uint8_t m_get_tile_id(int x_pos);
-        std::array<uint8_t, 2> m_get_tile_data(uint8_t tile_id);
-
-        fifo_entry m_get_pixel(std::array<uint8_t, 2> tile_data, int i, bool sprite, bool palette = false);
-
+      
         color m_get_entry_color(fifo_entry entry);
 
         fifo_entry m_fetch_obj(sprite_attributes obj, int x_pos);
+        fifo_entry m_fetch_bg(int x_pos);
     };
 }
