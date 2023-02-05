@@ -6,7 +6,6 @@
 
 namespace emulator
 {
-    // sprites OAM data
     struct sprite_attributes
     {
         uint8_t y_pos;

@@ -101,7 +101,7 @@ namespace emulator
         m_scan_oam();
 
         bool increase_win_c = false;
-        int nb_rendered_obj = 0;
+        int nb_px_obj = 0;
 
         for (int x_pos = 0; x_pos < VIEWPORT_WIDTH; x_pos++)
         {
@@ -119,44 +119,32 @@ namespace emulator
 
             m_framebuffer.at(x_pos + m_LY * VIEWPORT_WIDTH) = m_get_entry_color(bg_px);
 
-            if (m_LCDC.obj_enable != 1)
+            if (m_LCDC.obj_enable == 1)
             {
-                continue;
-            }
+                int obj_index = -1;
 
-            int obj_index = -1;
-
-            for (int z = 0; z < m_sprite_buffer.size(); ++z)
-            {
-                if ((m_sprite_buffer[z].x_pos - 8) == x_pos)
+                for (int z = 0; z < m_sprite_buffer.size(); ++z)
                 {
-                    obj_index = z;
-                }
-            }
-
-            if (obj_index >= 0 && nb_rendered_obj < 10)
-            {
-                auto& obj = m_sprite_buffer[obj_index];
-
-                for (int i = 0; i < 8; ++i)
-                {
-                    if ((x_pos + i) >= VIEWPORT_WIDTH)
+                    int obj_x = (m_sprite_buffer[z].x_pos - 8);
+                    if ((x_pos >= obj_x) && (x_pos < (obj_x + 8)))
                     {
-                        break;
+                        obj_index = z;
                     }
+                }
 
-                    auto obj_px = m_fetch_obj(obj, (x_pos + i));
-                    bg_px = m_fetch_bg(x_pos + i);
+                if (obj_index >= 0 && (nb_px_obj / 8) < 10)
+                {
+                    auto& obj = m_sprite_buffer[obj_index];
+                    auto obj_px = m_fetch_obj(obj, x_pos);
 
                     bool pick_bg =
                         (obj_px.color == 0) ||
                         ((obj.flags.obj_to_bg_prio == 1) && (bg_px.color != 0));
 
-                    m_framebuffer.at((x_pos + i) + m_LY * VIEWPORT_WIDTH) = m_get_entry_color(pick_bg ? bg_px : obj_px);
-                }
+                    m_framebuffer.at(x_pos + m_LY * VIEWPORT_WIDTH) = m_get_entry_color(pick_bg ? bg_px : obj_px);
 
-                nb_rendered_obj++;
-                x_pos += 7;
+                    nb_px_obj++;
+                }
             }
         }
 
