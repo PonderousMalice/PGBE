@@ -165,7 +165,9 @@ namespace emulator
     bool MMU::is_locked(uint16_t gb_adr)
     {
         //  HRAM is not affected by DMA transfers
-        return (gb_adr < 0x4000) // ROM 
+        return 
+            (gb_adr == 0xFF00) // JOYPAD
+            || (gb_adr < 0x4000) // ROM 
             || (0x8000 <= gb_adr && gb_adr <= 0x9FFF && (m_STAT.ppu_mode > 2)) // VRAM
             || (0xFE00 <= gb_adr && gb_adr <= 0xFE9F && (m_STAT.ppu_mode > 1)); // OAM
     }

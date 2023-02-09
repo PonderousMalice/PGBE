@@ -82,11 +82,11 @@ namespace emulator
             if (it->count++ >= it->delay)
             {
                 it->callback();
-                m_timers.erase(it);
+                it = m_timers.erase(it);
             }
             else
             {
-                ++it;
+                it++;
             }
         }
     }

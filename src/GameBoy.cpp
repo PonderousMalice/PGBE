@@ -54,13 +54,21 @@ namespace emulator
         uint8_t& r_joy = m_mmu.io_reg->at(P1_JOYP);
         uint8_t& r_IF = m_mmu.io_reg->at(IF);
 
-        set_bit(r_IF, 4);
+        if (!released)
+        {
+            set_bit(r_IF, 4);
+
+            bool isDirection = (b < 4);
+
+            set_bit(r_joy, 4, !isDirection); // direction (0 == select)
+            set_bit(r_joy, 5, isDirection); // action
+        }
+        else
+        {
+            set_bit(r_joy, 4, true);
+            set_bit(r_joy, 5, true);
+        }
         
-        bool isDirection = (b < 4);
-
-        set_bit(r_joy, 4, isDirection); // direction
-        set_bit(r_joy, 5, !isDirection); // action
-
         switch (b)
         {
         case emulator::GB_UP:

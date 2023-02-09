@@ -42,6 +42,7 @@ namespace emulator
 
         if (m_LCDC.ppu_enable == 0)
         {
+            m_STAT.v = 0x80;
             return;
         }
 
