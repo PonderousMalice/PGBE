@@ -20,13 +20,12 @@ namespace emulator
         m_prev_tima = 0;
     }
 
-    // waiter or schedule_task ?
-    void Timer::add_timer(int duration, std::function<void()> callback)
+    void Timer::schedule_task(int delay, std::function<void()> callback)
     {
-        ClockWatch t
+        Task t
         {
             .count = 0,
-            .duration = duration,
+            .delay = delay,
             .callback = callback
         };
 
@@ -57,7 +56,7 @@ namespace emulator
         m_prev_and_res = and_res;
         if (m_prev_tima == 0xFF && m_tima == 0x00)
         {
-            add_timer(4, std::bind(&Timer::m_tima_overflow, this));
+            schedule_task(4, std::bind(&Timer::m_tima_overflow, this));
         }
     }
 
@@ -80,7 +79,7 @@ namespace emulator
     {
         for (auto it = m_timers.begin(); it != m_timers.end();)
         {
-            if (it->count++ >= it->duration)
+            if (it->count++ >= it->delay)
             {
                 it->callback();
                 m_timers.erase(it);

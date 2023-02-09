@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <span>
 #include <vector>
 #include "const.h"
 #include "MMU.h"
@@ -25,18 +26,17 @@ namespace emulator
         };
     };
 
-    struct fifo_entry
-    {
-        uint8_t type : 1; // 0 = BG, 1 = Sprite
-        uint8_t palette : 1; // Sprites only: Selects Sprite Palette
-        uint8_t color : 2; // Color in palette
-    };
-
     struct color
     {
         uint8_t r;
         uint8_t g;
         uint8_t b;
+    };
+
+    struct gb_px
+    {
+        IO_REG_CODE pal;
+        int index;
     };
 
     class PPU
@@ -83,18 +83,17 @@ namespace emulator
             & m_IF, & m_BGP, & m_OBP0, & m_OBP1,
             & m_WY, & m_WX, & m_LYC;
 
-        std::array<sprite_attributes, 40>* m_oam;
-        std::array<uint8_t, 0x2000>* m_vram;
+        std::span<uint8_t, 0x2000> m_vram;
+        std::span<uint8_t, 0x00A0> m_oam;
 
-        std::array<color, VIEWPORT_BUFFER_SIZE> m_framebuffer;
+        //std::array<color, VIEWPORT_BUFFER_SIZE> m_framebuffer;
+        std::array<gb_px, VIEWPORT_BUFFER_SIZE> m_framebuffer;
         std::vector<sprite_attributes> m_sprite_buffer;
         
         int m_cur_cycle_in_scanline;
         int m_window_line_counter;
         int m_drawing_cycle_nb;
         bool m_frame_completed;
-        bool m_win_reached_once;
-        bool m_fetch_win;
         bool m_stat_triggered;
 
         enum state
@@ -108,13 +107,16 @@ namespace emulator
         void m_check_coincidence();
         void m_check_stat();
 
-        void m_draw_line();
+        void m_draw_scanline();
         void m_scan_oam();
         void m_switch_mode(state new_state);
-      
-        color m_get_entry_color(fifo_entry entry);
 
-        fifo_entry m_fetch_obj(sprite_attributes obj, int x_pos);
-        fifo_entry m_fetch_bg(int x_pos);
+        int m_get_tile_data(int tile_id, int x, int y);
+
+        gb_px m_fetch_win(int x_pos);
+        gb_px m_fetch_bg(int x_pos);
+        void m_fetch_obj();
+
+        void write_framebuffer(int x_pos, gb_px px);
     };
 }

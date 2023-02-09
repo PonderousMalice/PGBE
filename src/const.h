@@ -27,3 +27,6 @@ constexpr auto TILE_MAP_1 = 0x9800 - VRAM_BASE;
 constexpr auto TILE_MAP_2 = 0x9C00 - VRAM_BASE;
 constexpr auto TILE_DATA_1 = 0x8000 - VRAM_BASE;
 constexpr auto TILE_DATA_2 = 0x8800 - VRAM_BASE;
+
+constexpr auto SIZE_TILEMAP = 32 * 32;
+constexpr auto SIZE_TILEDATA = 384 * 16;

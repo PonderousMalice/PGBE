@@ -34,7 +34,7 @@ namespace emulator
         io_reg->fill(0);
         hram->fill(0);
 
-        io_reg->at(P1_JOYP) = 0xFF;
+        io_reg->at(P1_JOYP) = 0x3F;
         timer = nullptr;
     }
 
@@ -72,7 +72,7 @@ namespace emulator
                 }
                 break;
             case DMA:
-                timer->add_timer(4, std::bind(&MMU::oam_dma_transfer, this, v));
+                timer->schedule_task(4, std::bind(&MMU::oam_dma_transfer, this, v));
                 break;
             case BANK:
                 if (m_boot_rom_enabled && v == 1)

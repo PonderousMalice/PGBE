@@ -5,11 +5,10 @@
 
 namespace emulator
 {
-    // task ? promise ? Waiter ?
-    struct ClockWatch
+    struct Task
     {
         int count;
-        int duration;
+        int delay;
         std::function<void()> callback;
     };
     
@@ -18,11 +17,9 @@ namespace emulator
     public:
         Timer(MMU* mmu, PPU* ppu);
         
-        // schedule task ?
-        void add_timer(int duration, std::function<void()> callback);
+        void schedule_task(int delay, std::function<void()> callback);
         void advance_cycle();
     private:
-        
         void m_update_clock();
         void m_check_timers();
         bool m_timer_enabled();
@@ -35,6 +32,6 @@ namespace emulator
         uint8_t& m_div, &m_tima, &m_tma, &m_tac, &m_IF;
         bool m_prev_and_res;
         uint8_t m_prev_tima;
-        std::vector<ClockWatch> m_timers;
+        std::vector<Task> m_timers;
     };
 }
