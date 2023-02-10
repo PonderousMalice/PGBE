@@ -47,9 +47,9 @@ namespace emulator
         {
             uint8_t res = 0xFF;
 
-            if (m_select_action)
+            if (m_select_direction)
             {
-                set_bit(res, 5, false);
+                set_bit(res, 4, false);
                 for (int i = 0; i < 4; ++i) 
                 {
                     if (p_input.at(i))
@@ -59,9 +59,9 @@ namespace emulator
                 }
             }
 
-            if (m_select_direction)
+            if (m_select_action)
             {
-                set_bit(res, 4, false);
+                set_bit(res, 5, false);
                 for (int i = 4; i < 8; ++i)
                 {
                     if (p_input.at(i))
@@ -79,12 +79,12 @@ namespace emulator
         return (p == nullptr) ? 0xFF : *p;
     }
 
-    void  MMU::write(uint16_t adr, uint8_t v)
+    void MMU::write(uint16_t adr, uint8_t v)
     {
         if (adr == 0xFF00) // JOYPAD
         {
-            m_select_action = (v & 0x20) != 0;
-            m_select_direction = (v & 0x10) != 0;
+            m_select_action = (v & 0x20) == 0;
+            m_select_direction = (v & 0x10) == 0;
             return;
         }
 
