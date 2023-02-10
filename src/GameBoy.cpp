@@ -49,45 +49,16 @@ namespace emulator
         }
     }
 
-    void GameBoy::use_button(GB_BUTTON b, bool released)
+    void GameBoy::use_button(GB_BUTTON b, bool pressed)
     {
-        uint8_t& r_joy = m_mmu.io_reg->at(P1_JOYP);
-        uint8_t& r_IF = m_mmu.io_reg->at(IF);
-
-        if (!released)
+        if (pressed)
         {
+            uint8_t& r_IF = m_mmu.io_reg->at(IF);
+
             set_bit(r_IF, 4);
+        }
 
-            bool isDirection = (b < 4);
-
-            set_bit(r_joy, 4, !isDirection); // direction (0 == select)
-            set_bit(r_joy, 5, isDirection); // action
-        }
-        else
-        {
-            set_bit(r_joy, 4, true);
-            set_bit(r_joy, 5, true);
-        }
-        
-        switch (b)
-        {
-        case emulator::GB_UP:
-        case emulator::GB_SELECT:
-            set_bit(r_joy, 2, released);
-            break;
-        case emulator::GB_DOWN:
-        case emulator::GB_START:
-            set_bit(r_joy, 3, released);
-            break;
-        case emulator::GB_RIGHT:
-        case emulator::GB_A:
-            set_bit(r_joy, 0, released);
-            break;
-        case emulator::GB_LEFT:
-        case emulator::GB_B:
-            set_bit(r_joy, 1, released);
-            break;
-        }
+        m_mmu.p_input.at(b) = pressed;
     }
 }
 

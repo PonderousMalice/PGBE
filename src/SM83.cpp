@@ -2,7 +2,6 @@
 #include "utils.h"
 #include <fmt/core.h>
 #include <functional>
-#include <iostream>
 #include <stdexcept>
 
 namespace emulator
@@ -612,7 +611,7 @@ namespace emulator
             m_stop();
             break;
         default:
-            std::cout << "no op : " << instr.name;
+            //fmt::print("no op : {}", instr.name);
             break;
         }
     }
@@ -720,7 +719,7 @@ namespace emulator
             return m_fetch_word();
             return m_fetch_word();
         default:
-            throw "pute";
+            throw "m_get_reg";
         }
     }
 
@@ -849,7 +848,7 @@ namespace emulator
             }
             break;
         default:
-            throw "kekw";
+            throw "m_set_reg";
         }
 
         if (r.indirect)

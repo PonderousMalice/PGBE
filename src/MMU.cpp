@@ -3,8 +3,7 @@
 #include <fstream>
 #include <fmt/core.h>
 #include <cstring>
-#include <iostream>
-
+#include "utils.h"
 
 namespace emulator
 {
@@ -22,7 +21,9 @@ namespace emulator
         internal_div(0),
         m_dma_bus_conflict(false),
         m_boot_rom_enabled(true),
-        m_STAT((STAT_REG&)io_reg->at(STAT))
+        m_STAT((STAT_REG&)io_reg->at(STAT)),
+        m_select_action(false),
+        m_select_direction(false)
     {
         boot_rom->fill(0x00);
         rom_bank_00->fill(0xFF);
@@ -34,12 +35,45 @@ namespace emulator
         io_reg->fill(0);
         hram->fill(0);
 
-        io_reg->at(P1_JOYP) = 0x3F;
+        io_reg->at(P1_JOYP) = 0xFF;
         timer = nullptr;
+
+        p_input.fill(false);
     }
 
     uint8_t MMU::read(uint16_t adr)
     {
+        if (adr == 0xFF00)
+        {
+            uint8_t res = 0xFF;
+
+            if (m_select_action)
+            {
+                set_bit(res, 5, false);
+                for (int i = 0; i < 4; ++i) 
+                {
+                    if (p_input.at(i))
+                    {
+                        set_bit(res, i, false);
+                    }
+                }
+            }
+
+            if (m_select_direction)
+            {
+                set_bit(res, 4, false);
+                for (int i = 4; i < 8; ++i)
+                {
+                    if (p_input.at(i))
+                    {
+                        set_bit(res, (i % 4), false);
+                    }
+                }
+            }
+
+            return res;
+        }
+
         auto p = get_host_adr(adr);
 
         return (p == nullptr) ? 0xFF : *p;
@@ -47,6 +81,13 @@ namespace emulator
 
     void  MMU::write(uint16_t adr, uint8_t v)
     {
+        if (adr == 0xFF00) // JOYPAD
+        {
+            m_select_action = (v & 0x20) != 0;
+            m_select_direction = (v & 0x10) != 0;
+            return;
+        }
+
         if (is_locked(adr))
         {
             return;
@@ -68,7 +109,7 @@ namespace emulator
             case SB:
                 if (DEBUG_LOG_ENABLED)
                 {
-                    std::cout << fmt::format("{:c}", v);
+                    fmt::print("{:c}", v);
                 }
                 break;
             case DMA:
@@ -166,8 +207,7 @@ namespace emulator
     {
         //  HRAM is not affected by DMA transfers
         return 
-            (gb_adr == 0xFF00) // JOYPAD
-            || (gb_adr < 0x4000) // ROM 
+             (gb_adr < 0x4000) // ROM 
             || (0x8000 <= gb_adr && gb_adr <= 0x9FFF && (m_STAT.ppu_mode > 2)) // VRAM
             || (0xFE00 <= gb_adr && gb_adr <= 0xFE9F && (m_STAT.ppu_mode > 1)); // OAM
     }

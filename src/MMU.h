@@ -126,9 +126,14 @@ namespace emulator
         uint16_t internal_div;
         uint8_t ie_reg;
         Timer* timer;
+
+        std::array<bool, 8> p_input;
     private:
         bool m_dma_bus_conflict;
         bool m_boot_rom_enabled;
+
+        bool m_select_action;
+        bool m_select_direction;
 
         STAT_REG& m_STAT;
     };

@@ -67,7 +67,7 @@ namespace emulator
 
     void App::m_event(SDL_Event* e)
     {
-        bool released = false;
+        bool pressed = true;
 
         switch (e->type)
         {
@@ -80,33 +80,33 @@ namespace emulator
             SDL_free(e->drop.file);
             break;
         case SDL_KEYUP:
-            released = true;
+            pressed = false;
         case SDL_KEYDOWN:
             switch (e->key.keysym.sym)
             {
             case SDLK_UP:
-                gb->use_button(GB_UP, released);
+                gb->use_button(GB_UP, pressed);
                 break;
             case SDLK_DOWN:
-                gb->use_button(GB_DOWN, released);
+                gb->use_button(GB_DOWN, pressed);
                 break;
             case SDLK_LEFT:
-                gb->use_button(GB_LEFT, released);
+                gb->use_button(GB_LEFT, pressed);
                 break;
             case SDLK_RIGHT:
-                gb->use_button(GB_RIGHT, released);
+                gb->use_button(GB_RIGHT, pressed);
                 break;
             case SDLK_a:
-                gb->use_button(GB_A, released);
+                gb->use_button(GB_A, pressed);
                 break;
             case SDLK_s:
-                gb->use_button(GB_B, released);
+                gb->use_button(GB_B, pressed);
                 break;
             case SDLK_x:
-                gb->use_button(GB_SELECT, released);
+                gb->use_button(GB_SELECT, pressed);
                 break;
             case SDLK_z:
-                gb->use_button(GB_START, released);
+                gb->use_button(GB_START, pressed);
                 break;
             }
             break;

@@ -11,14 +11,14 @@ namespace emulator
 {
     enum GB_BUTTON
     {
-        GB_UP,
-        GB_DOWN,
-        GB_LEFT,
-        GB_RIGHT,
-        GB_A,
-        GB_B,
-        GB_START,
-        GB_SELECT
+        GB_UP = 2,
+        GB_DOWN = 3,
+        GB_LEFT = 1,
+        GB_RIGHT = 0,
+        GB_A = 4,
+        GB_B = 5,
+        GB_START = 7,
+        GB_SELECT = 6
     };
 
     class GameBoy
@@ -32,7 +32,7 @@ namespace emulator
         color get_color(int x, int y);
         void reset_ppu();
 
-        void use_button(GB_BUTTON b, bool realeased);
+        void use_button(GB_BUTTON b, bool pressed);
     private:
         MMU m_mmu;
         PPU m_ppu;

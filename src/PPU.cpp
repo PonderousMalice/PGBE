@@ -67,7 +67,6 @@ namespace emulator
             {
                 m_cur_cycle_in_scanline = 0;
 
-                //m_draw_line();
                 m_draw_scanline();
 
                 if (++m_LY >= NB_SCANLINES - 10)
@@ -381,8 +380,5 @@ namespace emulator
                 }
             }
         }
-
-
-
     }
 }
