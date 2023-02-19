@@ -7,6 +7,22 @@
 
 namespace emulator
 {
+    union LCD_C
+    {
+        struct
+        {
+            uint8_t bg_win_enable : 1;
+            uint8_t obj_enable : 1;
+            uint8_t obj_size : 1;
+            uint8_t bg_tile_map_select : 1;
+            uint8_t tile_data_select : 1;
+            uint8_t win_enable : 1;
+            uint8_t win_tile_map_select : 1;
+            uint8_t ppu_enable : 1;
+        };
+        uint8_t v;
+    };
+
     struct sprite_attributes
     {
         uint8_t y_pos;
@@ -86,7 +102,6 @@ namespace emulator
         std::span<uint8_t, 0x2000> m_vram;
         std::span<uint8_t, 0x00A0> m_oam;
 
-        //std::array<color, VIEWPORT_BUFFER_SIZE> m_framebuffer;
         std::array<gb_px, VIEWPORT_BUFFER_SIZE> m_framebuffer;
         std::vector<sprite_attributes> m_sprite_buffer;
         

@@ -353,8 +353,38 @@ namespace emulator
             auto obj_pal = (obj.flags.palette_nb == 0) ? OBP0 : OBP1;
 
             auto tile_data = m_vram.subspan(TILE_DATA_1, SIZE_TILEDATA);
+            auto tile_id = obj.tile_id;
 
-            auto data = &tile_data[(obj.tile_id * 16) + offset];
+            bool isTall = m_LCDC.obj_size;
+
+            if (isTall)
+            {
+                if (((m_LY - (obj.y_pos - 16)) < 8))
+                {
+                    if (obj.flags.y_flip)
+                    {
+                        tile_id |= 0b1;
+                    }
+                    else
+                    {
+                        tile_id &= 0xFE;
+                    }
+
+                }
+                else
+                {
+                    if (obj.flags.y_flip)
+                    {
+                        tile_id &= 0xFE;
+                    }
+                    else
+                    {
+                        tile_id |= 0b1;
+                    }
+                }
+            }
+
+            auto data = &tile_data[(tile_id * 16) + offset];
 
             int base_x = obj.x_pos - 8;
             for (int i = 0; i < 8; ++i)

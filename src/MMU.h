@@ -3,25 +3,10 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace emulator
 {
-    union LCD_C
-    {
-        struct
-        {
-            uint8_t bg_win_enable : 1;
-            uint8_t obj_enable : 1;
-            uint8_t obj_size : 1;
-            uint8_t bg_tile_map_select : 1;
-            uint8_t tile_data_select : 1; 
-            uint8_t win_enable : 1;
-            uint8_t win_tile_map_select : 1;
-            uint8_t ppu_enable : 1;
-        };
-        uint8_t v;
-    };
-
     union STAT_REG
     {
         struct
@@ -38,7 +23,6 @@ namespace emulator
         uint8_t v;
     };
 
-    // I/O Registers - 0xFF00 -> 0xFF7F 
     enum IO_REG_CODE
     {
         // Joypad Input
@@ -114,11 +98,7 @@ namespace emulator
         void load_boot_rom(std::string path);
         void load_game_rom(std::string path);
 
-        std::unique_ptr<std::array<uint8_t, 0x0100>> boot_rom;
-        std::unique_ptr<std::array<uint8_t, 0x4000>> rom_bank_00;
-        std::unique_ptr<std::array<uint8_t, 0x4000>> rom_bank_01;
         std::unique_ptr<std::array<uint8_t, 0x2000>> vram;
-        std::unique_ptr<std::array<uint8_t, 0x2000>> ext_ram;
         std::unique_ptr<std::array<uint8_t, 0x2000>> wram;
         std::unique_ptr<std::array<uint8_t, 0x00A0>> oam;
         std::unique_ptr<std::array<uint8_t, 0x0080>> io_reg;
@@ -129,11 +109,49 @@ namespace emulator
 
         std::array<bool, 8> p_input;
     private:
+        std::unique_ptr<std::array<uint8_t, 0x0100>> m_boot_rom;
+        std::vector<uint8_t> m_rom_gb;
+        std::vector<uint8_t> m_ext_ram;
+
         bool m_dma_bus_conflict;
-        bool m_boot_rom_enabled;
 
         bool m_select_action;
         bool m_select_direction;
+
+        enum 
+        {
+            None, // plain rom
+            MBC1,
+            MBC2,
+            MBC3,
+            MBC5,
+            MBC6,
+            MBC7,
+            MMM01,
+            POCKET_CAMERA,
+            BANDAI_TAMA5,
+            HUC3,
+            HUC1,
+        }
+        m_mbc_type;
+        
+        int m_rom_bank_00;
+        int m_rom_bank_01;
+        int m_ram_bank_00;
+
+        int m_rom_size; // bank nb
+        int m_ram_size;
+        bool m_mode_flag;
+
+        bool m_has_ram;
+        bool m_has_battery_buffered_ram;
+        bool m_has_real_time_clock;
+        bool m_has_rumble;
+        bool m_has_accelerometer;
+
+        bool m_ext_ram_enabled;
+
+        bool m_boot_rom_enabled();
 
         STAT_REG& m_STAT;
     };
