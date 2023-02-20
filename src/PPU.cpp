@@ -348,7 +348,9 @@ namespace emulator
         {
             auto& obj = m_sprite_buffer.at(i);
 
-            uint16_t offset = (obj.flags.y_flip == 0) ? 2 * (m_LY % 8) : 2 * (7 - (m_LY % 8));
+            uint8_t obj_y = (m_LY - (obj.y_pos - 16));
+
+            uint16_t offset = (obj.flags.y_flip == 0) ? 2 * (obj_y % 8) : 2 * (7 - (obj_y % 8));
 
             auto obj_pal = (obj.flags.palette_nb == 0) ? OBP0 : OBP1;
 
@@ -359,7 +361,7 @@ namespace emulator
 
             if (isTall)
             {
-                if (((m_LY - (obj.y_pos - 16)) < 8))
+                if (obj_y < 8)
                 {
                     if (obj.flags.y_flip)
                     {
