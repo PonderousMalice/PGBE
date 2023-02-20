@@ -371,7 +371,6 @@ namespace emulator
                     {
                         tile_id &= 0xFE;
                     }
-
                 }
                 else
                 {
@@ -398,7 +397,7 @@ namespace emulator
                 if (pal_idx != 0)
                 {
                     int xf = base_x + i;
-                    if (xf >= 0 && xf <= 160)
+                    if (xf >= 0 && xf < 160)
                     {
                         auto bg_color = m_framebuffer.at(xf + m_LY * VIEWPORT_WIDTH);
                         bool bg_color_is_white = (bg_color.index == 0);

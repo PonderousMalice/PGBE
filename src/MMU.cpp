@@ -89,8 +89,9 @@ namespace emulator
 
     void MMU::write(uint16_t adr, uint8_t v)
     {
-        if (adr == 0xFF00) // JOYPAD
-        {
+        if (adr == 0xFF00) // JOYPAD 
+        { 
+            // 0 means selected
             m_select_action = (v & 0x20) == 0;
             m_select_direction = (v & 0x10) == 0;
             return;
@@ -203,6 +204,17 @@ namespace emulator
                 return nullptr;
             }
 
+            if (m_rom_size == 64)
+            {
+                // not workign for MBC1M 
+                m_rom_bank_00 = (m_ram_bank_00 & 0b1) << 5;
+            }
+
+            if (m_rom_size == 128)
+            {
+                m_rom_bank_00 = (m_ram_bank_00 & 0b11) << 5;
+            }
+
             return m_rom_gb.data() + (m_rom_bank_00 * 0x4000) + gb_adr;
         }
         else if (0x4000 <= gb_adr && gb_adr <= 0x7FFF)
@@ -210,6 +222,19 @@ namespace emulator
             if (m_rom_gb.empty())
             {
                 return nullptr;
+            }
+
+            if (m_rom_size == 64)
+            {
+                m_rom_bank_01 &= ~(0b1 << 5);
+                m_rom_bank_01 |= ((m_ram_bank_00 & 0b1) << 5);
+
+            }
+
+            if (m_rom_size == 128)
+            {
+                m_rom_bank_01 &= ~(0b11 << 5);
+                m_rom_bank_01 |= ((m_ram_bank_00 & 0b11) << 5);
             }
 
             return m_rom_gb.data() + (m_rom_bank_01 * 0x4000) + (gb_adr - 0x4000);
