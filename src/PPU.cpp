@@ -1,6 +1,6 @@
-#include "PPU.h"
-#include "utils.h"
 #include <algorithm>
+#include "utils.h"
+#include "PPU.h"
 
 namespace emulator
 {

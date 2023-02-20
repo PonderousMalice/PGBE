@@ -1,7 +1,7 @@
 #pragma once
-#include <functional>
 #include "MMU.h"
 #include "PPU.h"
+#include <functional>
 
 namespace emulator
 {

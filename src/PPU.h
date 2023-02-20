@@ -1,9 +1,9 @@
 #pragma once
+#include "const.h"
+#include "MMU.h"
 #include <array>
 #include <span>
 #include <vector>
-#include "const.h"
-#include "MMU.h"
 
 namespace emulator
 {

@@ -1,9 +1,9 @@
-#include <fstream>
-#include <fmt/core.h>
-#include <cstring>
-#include "utils.h"
-#include "Timer.h"
 #include "MMU.h"
+#include "Timer.h"
+#include "utils.h"
+#include <cstring>
+#include <fmt/core.h>
+#include <fstream>
 
 namespace emulator
 {
@@ -228,7 +228,6 @@ namespace emulator
             {
                 m_rom_bank_01 &= ~(0b1 << 5);
                 m_rom_bank_01 |= ((m_ram_bank_00 & 0b1) << 5);
-
             }
 
             if (m_rom_size == 128)
