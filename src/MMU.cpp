@@ -204,18 +204,26 @@ namespace emulator
                 return nullptr;
             }
 
-            if (m_rom_size == 64)
+            if (m_mode_flag)
             {
-                // not workign for MBC1M 
-                m_rom_bank_00 = (m_ram_bank_00 & 0b1) << 5;
-            }
+                if (m_rom_size == 64)
+                {
+                    // not workign for MBC1M 
+                    m_rom_bank_00 = (m_ram_bank_00 & 0b1) << 5;
+                }
 
-            if (m_rom_size == 128)
+                if (m_rom_size == 128)
+                {
+                    m_rom_bank_00 = (m_ram_bank_00 & 0b11) << 5;
+                }
+
+                return m_rom_gb.data() + (m_rom_bank_00 * 0x4000) + gb_adr;
+            }
+            else
             {
-                m_rom_bank_00 = (m_ram_bank_00 & 0b11) << 5;
+                return m_rom_gb.data() + gb_adr;
             }
-
-            return m_rom_gb.data() + (m_rom_bank_00 * 0x4000) + gb_adr;
+            
         }
         else if (0x4000 <= gb_adr && gb_adr <= 0x7FFF)
         {

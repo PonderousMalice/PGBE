@@ -15,51 +15,51 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="GameBoy.cpp">
+    <ClCompile Include="src/GameBoy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SM83.cpp">
+    <ClCompile Include="src/SM83.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PPU.cpp">
+    <ClCompile Include="src/PPU.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MMU.cpp">
+    <ClCompile Include="src/MMU.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src/main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Timer.cpp">
+    <ClCompile Include="src/Timer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="App.cpp">
+    <ClCompile Include="src/App.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="GameBoy.h">
+    <ClInclude Include="src/GameBoy.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SM83.h">
+    <ClInclude Include="src/SM83.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="utils.h">
+    <ClInclude Include="src/utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PPU.h">
+    <ClInclude Include="src/PPU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MMU.h">
+    <ClInclude Include="src/MMU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="const.h">
+    <ClInclude Include="src/const.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Timer.h">
+    <ClInclude Include="src/Timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="App.h">
+    <ClInclude Include="src/App.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -19,23 +19,23 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="App.cpp" />
-    <ClCompile Include="GameBoy.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="MMU.cpp" />
-    <ClCompile Include="PPU.cpp" />
-    <ClCompile Include="SM83.cpp" />
-    <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="src/App.cpp" />
+    <ClCompile Include="src/GameBoy.cpp" />
+    <ClCompile Include="src/main.cpp" />
+    <ClCompile Include="src/MMU.cpp" />
+    <ClCompile Include="src/PPU.cpp" />
+    <ClCompile Include="src/SM83.cpp" />
+    <ClCompile Include="src/Timer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="App.h" />
-    <ClInclude Include="const.h" />
-    <ClInclude Include="GameBoy.h" />
-    <ClInclude Include="MMU.h" />
-    <ClInclude Include="PPU.h" />
-    <ClInclude Include="SM83.h" />
-    <ClInclude Include="Timer.h" />
-    <ClInclude Include="utils.h" />
+    <ClInclude Include="src/App.h" />
+    <ClInclude Include="src/const.h" />
+    <ClInclude Include="src/GameBoy.h" />
+    <ClInclude Include="src/MMU.h" />
+    <ClInclude Include="src/PPU.h" />
+    <ClInclude Include="src/SM83.h" />
+    <ClInclude Include="src/Timer.h" />
+    <ClInclude Include="src/utils.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
