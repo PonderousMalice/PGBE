@@ -348,9 +348,9 @@ namespace emulator
         {
             auto& obj = m_sprite_buffer.at(i);
 
-            uint8_t obj_y = (m_LY - (obj.y_pos - 16));
+            u8 obj_y = (m_LY - (obj.y_pos - 16));
 
-            uint16_t offset = (obj.flags.y_flip == 0) ? 2 * (obj_y % 8) : 2 * (7 - (obj_y % 8));
+            u16 offset = (obj.flags.y_flip == 0) ? 2 * (obj_y % 8) : 2 * (7 - (obj_y % 8));
 
             auto obj_pal = (obj.flags.palette_nb == 0) ? OBP0 : OBP1;
 

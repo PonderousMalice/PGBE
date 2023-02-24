@@ -53,7 +53,7 @@ namespace emulator
     {
         if (pressed)
         {
-            uint8_t& r_IF = m_mmu.io_reg->at(IF);
+            u8& r_IF = m_mmu.io_reg->at(IF);
 
             set_bit(r_IF, 4);
         }

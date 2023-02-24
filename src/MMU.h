@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "defines.h"
 
 namespace emulator
 {
@@ -11,16 +12,16 @@ namespace emulator
     {
         struct
         {
-            uint8_t ppu_mode : 2;
-            uint8_t coincidence_flag : 1;
-            uint8_t mode_0_interupt : 1;
-            uint8_t mode_1_interupt : 1;
-            uint8_t mode_2_interupt : 1;
-            uint8_t lcy_ly_interupt : 1;
-            uint8_t unused : 1;
+            u8 ppu_mode : 2;
+            u8 coincidence_flag : 1;
+            u8 mode_0_interupt : 1;
+            u8 mode_1_interupt : 1;
+            u8 mode_2_interupt : 1;
+            u8 lcy_ly_interupt : 1;
+            u8 unused : 1;
 
         };
-        uint8_t v;
+        u8 v;
     };
 
     enum IO_REG_CODE
@@ -88,30 +89,30 @@ namespace emulator
     public:
         MMU();
 
-        uint8_t read(uint16_t adr);
-        void write(uint16_t adr, uint8_t v);
-        uint8_t* get_host_adr(uint16_t gb_adr);
-        bool is_locked(uint16_t gb_adr);
+        u8 read(u16 adr);
+        void write(u16 adr, u8 v);
+        u8* get_host_adr(u16 gb_adr);
+        bool is_locked(u16 gb_adr);
 
-        void oam_dma_transfer(uint8_t src);
+        void oam_dma_transfer(u8 src);
 
         void load_boot_rom(std::string path);
         void load_game_rom(std::string path);
 
-        std::unique_ptr<std::array<uint8_t, 0x2000>> vram;
-        std::unique_ptr<std::array<uint8_t, 0x2000>> wram;
-        std::unique_ptr<std::array<uint8_t, 0x00A0>> oam;
-        std::unique_ptr<std::array<uint8_t, 0x0080>> io_reg;
-        std::unique_ptr<std::array<uint8_t, 0x007F>> hram;
-        uint16_t internal_div;
-        uint8_t ie_reg;
+        std::unique_ptr<std::array<u8, 0x2000>> vram;
+        std::unique_ptr<std::array<u8, 0x2000>> wram;
+        std::unique_ptr<std::array<u8, 0x00A0>> oam;
+        std::unique_ptr<std::array<u8, 0x0080>> io_reg;
+        std::unique_ptr<std::array<u8, 0x007F>> hram;
+        u16 internal_div;
+        u8 ie_reg;
         Timer* timer;
 
         std::array<bool, 8> p_input;
     private:
-        std::unique_ptr<std::array<uint8_t, 0x0100>> m_boot_rom;
-        std::vector<uint8_t> m_rom_gb;
-        std::vector<uint8_t> m_ext_ram;
+        std::unique_ptr<std::array<u8, 0x0100>> m_boot_rom;
+        std::vector<u8> m_rom_gb;
+        std::vector<u8> m_ext_ram;
 
         bool m_dma_bus_conflict;
 

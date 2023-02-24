@@ -8,13 +8,13 @@
 namespace emulator
 {
     MMU::MMU() :
-        m_boot_rom(std::make_unique<std::array<uint8_t, 256>>()),
+        m_boot_rom(std::make_unique<std::array<u8, 256>>()),
         m_ext_ram(0x2000),
-        vram(std::make_unique<std::array<uint8_t, 0x2000>>()),
-        wram(std::make_unique<std::array<uint8_t, 0x2000>>()),
-        oam(std::make_unique<std::array<uint8_t, 0x00A0>>()),
-        io_reg(std::make_unique<std::array<uint8_t, 0x0080>>()),
-        hram(std::make_unique<std::array<uint8_t, 0x007F>>()),
+        vram(std::make_unique<std::array<u8, 0x2000>>()),
+        wram(std::make_unique<std::array<u8, 0x2000>>()),
+        oam(std::make_unique<std::array<u8, 0x00A0>>()),
+        io_reg(std::make_unique<std::array<u8, 0x0080>>()),
+        hram(std::make_unique<std::array<u8, 0x007F>>()),
         ie_reg(0xE0),
         internal_div(0),
         m_dma_bus_conflict(false),
@@ -49,11 +49,11 @@ namespace emulator
         p_input.fill(false);
     }
 
-    uint8_t MMU::read(uint16_t adr)
+    u8 MMU::read(u16 adr)
     {
         if (adr == 0xFF00) // JOYPAD
         {
-            uint8_t res = 0xFF;
+            u8 res = 0xFF;
 
             if (m_select_direction)
             {
@@ -87,7 +87,7 @@ namespace emulator
         return (p == nullptr) ? 0xFF : *p;
     }
 
-    void MMU::write(uint16_t adr, uint8_t v)
+    void MMU::write(u16 adr, u8 v)
     {
         if (adr == 0xFF00) // JOYPAD 
         { 
@@ -106,7 +106,7 @@ namespace emulator
             }
             else if (0x2000 <= adr && adr <= 0x3FFF) // ROM Bank
             {
-                uint8_t mask = 0;
+                u8 mask = 0;
                 switch (m_rom_size)
                 {
                 case 128:
@@ -190,7 +190,7 @@ namespace emulator
         }
     }
 
-    uint8_t* MMU::get_host_adr(uint16_t gb_adr)
+    u8* MMU::get_host_adr(u16 gb_adr)
     {
         if (0x0000 <= gb_adr && gb_adr <= 0x3FFF)
         {
@@ -311,9 +311,9 @@ namespace emulator
     void MMU::load_game_rom(std::string path)
     {
         std::ifstream input(path, std::ios::binary);
-        m_rom_gb = std::vector<uint8_t>((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+        m_rom_gb = std::vector<u8>((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
 
-        uint8_t mbc_type = m_rom_gb.at(0x147);
+        u8 mbc_type = m_rom_gb.at(0x147);
         switch (mbc_type)
         {
         case 0x00:
@@ -424,7 +424,7 @@ namespace emulator
             break;
         }
 
-        uint8_t rom_size = m_rom_gb.at(0x148);
+        u8 rom_size = m_rom_gb.at(0x148);
         switch (rom_size)
         {
         case 0x00:
@@ -465,7 +465,7 @@ namespace emulator
             break;
         }
 
-        uint8_t ram_size = m_rom_gb.at(0x149);
+        u8 ram_size = m_rom_gb.at(0x149);
         switch (ram_size)
         {
         case 0x00:
@@ -492,12 +492,12 @@ namespace emulator
     }
 
     // TO DO : impl DMA Bus Conflicts
-    void MMU::oam_dma_transfer(uint8_t src)
+    void MMU::oam_dma_transfer(u8 src)
     {
         std::memcpy(oam.get(), get_host_adr(src << 8), 0xA0);
     }
 
-    bool MMU::is_locked(uint16_t gb_adr)
+    bool MMU::is_locked(u16 gb_adr)
     {
         //  HRAM is not affected by DMA transfers
         return

@@ -29,7 +29,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src/App.h" />
-    <ClInclude Include="src/const.h" />
+    <ClInclude Include="src\defines.h" />
     <ClInclude Include="src/GameBoy.h" />
     <ClInclude Include="src/MMU.h" />
     <ClInclude Include="src/PPU.h" />

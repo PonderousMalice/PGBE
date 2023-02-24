@@ -28,10 +28,10 @@ namespace emulator
 
         MMU* m_mmu;
         PPU* m_ppu;
-        uint16_t& m_internal_div;
-        uint8_t& m_div, &m_tima, &m_tma, &m_tac, &m_IF;
+        u16& m_internal_div;
+        u8& m_div, &m_tima, &m_tma, &m_tac, &m_IF;
         bool m_prev_and_res;
-        uint8_t m_prev_tima;
+        u8 m_prev_tima;
         std::vector<Task> m_timers;
     };
 }

@@ -7,8 +7,8 @@ using std::placeholders::_1;
 
 namespace emulator
 {
-    using reg_t = std::variant<uint8_t*, uint16_t*>;
-    using reg_v = std::variant<uint8_t, uint16_t>;
+    using reg_t = std::variant<u8*, u16*>;
+    using reg_v = std::variant<u8, u16>;
 
     enum reg_name
     {
@@ -83,7 +83,7 @@ namespace emulator
         } name;
         std::array<reg_s, 2> args;
 
-        uint8_t y;
+        u8 y;
     };
 
     class SM83
@@ -112,66 +112,66 @@ namespace emulator
                     {
                         struct flag
                         {
-                            uint8_t : 4; // padding
-                            uint8_t c : 1;
-                            uint8_t h : 1;
-                            uint8_t n : 1;
-                            uint8_t z : 1;
+                            u8 : 4; // padding
+                            u8 c : 1;
+                            u8 h : 1;
+                            u8 n : 1;
+                            u8 z : 1;
                         } flags;
-                        uint8_t F;
+                        u8 F;
                     };
-                    uint8_t A;
+                    u8 A;
                 };
-                uint16_t AF;
+                u16 AF;
             };
 
             union
             {
                 struct
                 {
-                    uint8_t C;
-                    uint8_t B;
+                    u8 C;
+                    u8 B;
                 };
-                uint16_t BC;
+                u16 BC;
             };
 
             union
             {
                 struct
                 {
-                    uint8_t E;
-                    uint8_t D;
+                    u8 E;
+                    u8 D;
                 };
-                uint16_t DE;
+                u16 DE;
             };
 
             union
             {
                 struct
                 {
-                    uint8_t L;
-                    uint8_t H;
+                    u8 L;
+                    u8 H;
                 };
-                uint16_t HL;
+                u16 HL;
             };
 
-            uint16_t SP;
-            uint16_t PC;
+            u16 SP;
+            u16 PC;
         } m_registers;
         bool m_ime, m_halted, m_halt_bug;
-        uint8_t& m_IF, & m_IE;
+        u8& m_IF, & m_IE;
 
         OP m_prev_op;
 
-        OP m_decode(uint8_t opcode);
+        OP m_decode(u8 opcode);
         void m_execute(OP instr);
         void m_advance_cycle(int m_cycles = 1);
 
         // Memory access
-        uint8_t m_read(uint16_t adr);
-        uint8_t m_fetch();
-        uint16_t m_fetch_word();
-        void m_write(uint16_t adr, uint8_t v);
+        u8 m_read(u16 adr);
+        u8 m_fetch();
+        u16 m_fetch_word();
+        void m_write(u16 adr, u8 v);
 
         reg_v m_get_reg(reg_s r);
         void m_set_reg(reg_s r, reg_v v);
@@ -180,15 +180,15 @@ namespace emulator
         void m_isr();
 
         // ALU
-        void m_add(uint8_t v);
+        void m_add(u8 v);
         void m_add_16(reg_s lv, reg_s rv);
-        void m_adc(uint8_t v);
-        void m_sub(uint8_t v);
-        void m_sbc(uint8_t v);
-        void m_and(uint8_t v);
-        void m_xor(uint8_t v);
-        void m_or(uint8_t v);
-        void m_cp(uint8_t v);
+        void m_adc(u8 v);
+        void m_sub(u8 v);
+        void m_sbc(u8 v);
+        void m_and(u8 v);
+        void m_xor(u8 v);
+        void m_or(u8 v);
+        void m_cp(u8 v);
 
         void m_dec(reg_t v);
         void m_inc(reg_t v);
@@ -200,18 +200,18 @@ namespace emulator
 
         void m_ld(reg_s lv, reg_s rv);
 
-        void m_pop(uint16_t& r);
-        void m_push(uint16_t r);
+        void m_pop(u16& r);
+        void m_push(u16 r);
 
         // Rotate and shi(f)t instructions
-        void m_rlc(uint8_t& v);
-        void m_rrc(uint8_t& v);
-        void m_rl(uint8_t& v);
-        void m_rr(uint8_t& v);
-        void m_sla(uint8_t& v);
-        void m_sra(uint8_t& v);
-        void m_swap(uint8_t& v);
-        void m_srl(uint8_t& v);
+        void m_rlc(u8& v);
+        void m_rrc(u8& v);
+        void m_rl(u8& v);
+        void m_rr(u8& v);
+        void m_sla(u8& v);
+        void m_sra(u8& v);
+        void m_swap(u8& v);
+        void m_srl(u8& v);
         void m_rla();
         void m_rlca();
         void m_rra();
@@ -224,16 +224,16 @@ namespace emulator
         bool m_c();
 
         // Jump
-        void m_call(uint16_t adr, std::function<bool(void)> cc = nullptr);
+        void m_call(u16 adr, std::function<bool(void)> cc = nullptr);
         void m_jp(std::function<bool(void)> cc = nullptr);
         void m_jr(std::function<bool(void)> cc = nullptr);
         void m_ret(std::function<bool(void)> cc = nullptr);
         void m_reti();
 
         // Bit op
-        void m_bit(uint8_t v, uint8_t i);
-        void m_res(uint8_t& v, uint8_t i);
-        void m_set(uint8_t& v, uint8_t i);
+        void m_bit(u8 v, u8 i);
+        void m_res(u8& v, u8 i);
+        void m_set(u8& v, u8 i);
 
         // Special
         void m_stop();
@@ -267,7 +267,7 @@ namespace emulator
             reg_s{ AF, false },
         };
 
-        const std::array<std::function<void(uint8_t)>, 8> m_alu
+        const std::array<std::function<void(u8)>, 8> m_alu
         {
             std::bind(&SM83::m_add, this, _1),
             std::bind(&SM83::m_adc, this, _1),
@@ -279,7 +279,7 @@ namespace emulator
             std::bind(&SM83::m_cp, this, _1),
         };
 
-        const std::array<std::function<void(uint8_t&)>, 8> m_rot
+        const std::array<std::function<void(u8&)>, 8> m_rot
         {
             std::bind(&SM83::m_rlc, this, _1),
             std::bind(&SM83::m_rrc, this, _1),

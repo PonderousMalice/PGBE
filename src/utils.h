@@ -1,39 +1,40 @@
 #pragma once
+#include "defines.h"
 
 namespace emulator
 {
-    inline bool is_set_bit(uint16_t i, int n)
+    inline bool is_set_bit(u16 i, int n)
     {
         return (i >> n) & 1U;
     }
 
-    inline void clear_bit(uint8_t& i, int n)
+    inline void clear_bit(u8& i, int n)
     {
         i &= ~(1U << n);
     }
 
-    inline void set_bit(uint8_t& i, int n, bool value = true)
+    inline void set_bit(u8& i, int n, bool value = true)
     {
         i = i & ~(1U << n) | (value << n);
     }
 
-    inline void toggle_bit(uint8_t& i, int n)
+    inline void toggle_bit(u8& i, int n)
     {
         i ^= ~(1U << n);
     }
 
-    inline uint16_t combine(uint8_t lsb, uint8_t msb)
+    inline u16 combine(u8 lsb, u8 msb)
     {
-        return ((uint16_t)msb << 8) | lsb;
+        return ((u16)msb << 8) | lsb;
     }
 
-    inline uint8_t LSB(uint16_t i)
+    inline u8 LSB(u16 i)
     {
-        return (uint8_t)(i & 0x00FF);
+        return (u8)(i & 0x00FF);
     }
 
-    inline uint8_t MSB(uint16_t i)
+    inline u8 MSB(u16 i)
     {
-        return (uint8_t)((i & 0xFF00) >> 8);
+        return (u8)((i & 0xFF00) >> 8);
     }
 }

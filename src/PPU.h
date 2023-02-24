@@ -1,5 +1,5 @@
 #pragma once
-#include "const.h"
+#include "defines.h"
 #include "MMU.h"
 #include <array>
 #include <span>
@@ -11,42 +11,42 @@ namespace emulator
     {
         struct
         {
-            uint8_t bg_win_enable : 1;
-            uint8_t obj_enable : 1;
-            uint8_t obj_size : 1;
-            uint8_t bg_tile_map_select : 1;
-            uint8_t tile_data_select : 1;
-            uint8_t win_enable : 1;
-            uint8_t win_tile_map_select : 1;
-            uint8_t ppu_enable : 1;
+            u8 bg_win_enable : 1;
+            u8 obj_enable : 1;
+            u8 obj_size : 1;
+            u8 bg_tile_map_select : 1;
+            u8 tile_data_select : 1;
+            u8 win_enable : 1;
+            u8 win_tile_map_select : 1;
+            u8 ppu_enable : 1;
         };
-        uint8_t v;
+        u8 v;
     };
 
     struct sprite_attributes
     {
-        uint8_t y_pos;
-        uint8_t x_pos;
-        uint8_t tile_id;
+        u8 y_pos;
+        u8 x_pos;
+        u8 tile_id;
         union
         {
             struct
             {
-                uint8_t cgb : 4;
-                uint8_t palette_nb : 1;
-                uint8_t x_flip : 1;
-                uint8_t y_flip : 1;
-                uint8_t obj_to_bg_prio : 1;
+                u8 cgb : 4;
+                u8 palette_nb : 1;
+                u8 x_flip : 1;
+                u8 y_flip : 1;
+                u8 obj_to_bg_prio : 1;
             } flags;
-            uint8_t f;
+            u8 f;
         };
     };
 
     struct color
     {
-        uint8_t r;
-        uint8_t g;
-        uint8_t b;
+        u8 r;
+        u8 g;
+        u8 b;
     };
 
     struct gb_px
@@ -95,12 +95,12 @@ namespace emulator
 
         LCD_C& m_LCDC;
         STAT_REG& m_STAT;
-        uint8_t& m_LY, & m_SCX, & m_SCY,
+        u8& m_LY, & m_SCX, & m_SCY,
             & m_IF, & m_BGP, & m_OBP0, & m_OBP1,
             & m_WY, & m_WX, & m_LYC;
 
-        std::span<uint8_t, 0x2000> m_vram;
-        std::span<uint8_t, 0x00A0> m_oam;
+        std::span<u8, 0x2000> m_vram;
+        std::span<u8, 0x00A0> m_oam;
 
         std::array<gb_px, VIEWPORT_BUFFER_SIZE> m_framebuffer;
         std::vector<sprite_attributes> m_sprite_buffer;

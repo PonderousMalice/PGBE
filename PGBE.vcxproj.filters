@@ -53,7 +53,7 @@
     <ClInclude Include="src/MMU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src/const.h">
+    <ClInclude Include="src\defines.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src/Timer.h">
