@@ -37,7 +37,8 @@
 *.gb
 .vs/*
 x64/*
-*.build
 *.txt
 src/x64/
 *.sym
+
+subprojects/
