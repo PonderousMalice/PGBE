@@ -1,10 +1,10 @@
 #include "App.h"
 #include "defines.h"
-#include <chrono>
-#include <fmt/core.h>
-#include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer.h"
+#include "imgui.h"
+#include <chrono>
+#include <fmt/core.h>
 
 using namespace std::chrono;
 
@@ -13,6 +13,7 @@ namespace emulator
     App::App() : gb(std::make_unique<GameBoy>()),
                  m_window(nullptr),
                  m_renderer(nullptr),
+                 m_rect_lcd(),
                  m_running(true)
     {
     }
@@ -50,7 +51,7 @@ namespace emulator
             double elapsed_time = duration_cast<milliseconds>(end - run).count();
             auto sleep_time = FRAME_DURATION_MS - elapsed_time;
 
-            std::this_thread::sleep_for(sleep_time * 1ms);
+            //std::this_thread::sleep_for(sleep_time * 1ms);
         }
     }
 
@@ -66,7 +67,7 @@ namespace emulator
         m_window = SDL_CreateWindow("Prolix GB", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, windows_flags);
         m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
 
-        if (m_renderer == NULL)
+        if (m_renderer == nullptr)
         {
             SDL_Log("SDL could not create SDL_Renderer!");
             return exit(0);
@@ -87,6 +88,8 @@ namespace emulator
         gb->init();
 
         m_texture = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+
+        m_resize();
     }
 
     void App::m_event(SDL_Event *e)
@@ -104,6 +107,9 @@ namespace emulator
             gb = std::make_unique<GameBoy>(e->drop.file);
             gb->init();
             SDL_free(e->drop.file);
+            break;
+        case SDL_WINDOWEVENT:
+            m_resize();
             break;
         case SDL_KEYUP:
             pressed = false;
@@ -166,7 +172,7 @@ namespace emulator
         u8* pixels;
         int pitch;
 
-        SDL_LockTexture(m_texture, NULL, (void**)&pixels, &pitch);
+        SDL_LockTexture(m_texture, nullptr, (void**)&pixels, &pitch);
         for (int i = 0; i < pitch * VIEWPORT_HEIGHT; i += 3)
         {
             int j = (i / 3);
@@ -181,23 +187,30 @@ namespace emulator
         }
         SDL_UnlockTexture(m_texture);
 
-        int scale_factor = 4;
-
-        SDL_Rect dst
-        {
-            .x = 0,
-            .y = 0,
-            .w = VIEWPORT_WIDTH * scale_factor,
-            .h = VIEWPORT_WIDTH * scale_factor
-        };
-
-        int xcenter = WINDOW_WIDTH / 2, ycenter = WINDOW_HEIGHT / 2;
-        
-        SDL_RenderCopy(m_renderer, m_texture, NULL, &dst);
+        SDL_RenderCopy(m_renderer, m_texture, nullptr, &m_rect_lcd);
 
         ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
         SDL_RenderPresent(m_renderer);
 
         gb->reset_ppu();
+    }
+
+    void App::m_resize()
+    {
+        int win_width, win_height;
+        
+        SDL_GetWindowSize(m_window, &win_width, &win_height);
+
+        int scale_factor = win_height / VIEWPORT_HEIGHT;
+
+        int gb_width = VIEWPORT_WIDTH * scale_factor;
+        int gb_height = VIEWPORT_HEIGHT * scale_factor;
+
+        int xcenter = win_width / 2, ycenter = win_height / 2;
+
+        m_rect_lcd.x = xcenter - (gb_width / 2);
+        m_rect_lcd.y = ycenter - (gb_height / 2);
+        m_rect_lcd.w = gb_width;
+        m_rect_lcd.h = gb_height;
     }
 }

@@ -33,14 +33,7 @@
 
 *.log
 *.bin
-*.pd
 *.gb
-.vs/*
-x64/*
-*.txt
-src/x64/
-*.sym
-
 subprojects/
-
 imgui.ini
+.vscode
