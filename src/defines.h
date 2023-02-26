@@ -6,8 +6,8 @@ namespace emulator
     constexpr auto VIEWPORT_HEIGHT = 144;
     constexpr auto VIEWPORT_BUFFER_SIZE = VIEWPORT_HEIGHT * VIEWPORT_WIDTH;
 
-    constexpr auto WINDOW_WIDTH = VIEWPORT_WIDTH * 5;
-    constexpr auto WINDOW_HEIGHT = VIEWPORT_HEIGHT * 5;
+    constexpr auto WINDOW_WIDTH = 1280;
+    constexpr auto WINDOW_HEIGHT = 720;
 
     constexpr auto FREQUENCY = 4.0 * (1 << 20); // 4 MiHz
     constexpr auto DOT = 1.0 / FREQUENCY; // 1 T-Cycle

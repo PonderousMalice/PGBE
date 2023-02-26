@@ -1,6 +1,6 @@
 #pragma once
 #include "GameBoy.h"
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 namespace emulator
 {
@@ -20,6 +20,8 @@ namespace emulator
         bool m_running;
         SDL_Window* m_window;
         SDL_Renderer* m_renderer;
+        SDL_Texture* m_texture;
+
         std::unique_ptr<GameBoy> gb;
     };
 }

@@ -1,5 +1,4 @@
 #include "App.h"
-#include <iostream>
 
 using namespace emulator;
 
