@@ -1,6 +1,10 @@
 #pragma once
 #include "defines.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace emulator
 {
     inline bool is_set_bit(u16 i, int n)
@@ -36,5 +40,27 @@ namespace emulator
     inline u8 MSB(u16 i)
     {
         return (u8)((i & 0xFF00) >> 8);
+    }
+
+    inline void nsleep(u64 nanoseconds)
+    {
+#ifdef _WIN32
+        HANDLE timer = nullptr;
+        LARGE_INTEGER sleepTime;
+
+        sleepTime.QuadPart = -(nanoseconds / 100LL);
+
+        timer = CreateWaitableTimer(nullptr, true, nullptr);
+        SetWaitableTimer(timer, &sleepTime, 0, nullptr, nullptr, false);
+        if (timer == nullptr)
+        {
+            exit(1);
+        }
+        if (WaitForSingleObject(timer, INFINITE) != WAIT_OBJECT_0)
+        {
+            exit(1);
+        }
+        CloseHandle(timer);
+#endif
     }
 }

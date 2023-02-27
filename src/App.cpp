@@ -3,6 +3,7 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_sdlrenderer.h"
 #include "imgui.h"
+#include "utils.h"
 #include <chrono>
 #include <fmt/core.h>
 
@@ -10,11 +11,12 @@ using namespace std::chrono;
 
 namespace emulator
 {
-    App::App() : gb(std::make_unique<GameBoy>()),
-                 m_window(nullptr),
-                 m_renderer(nullptr),
-                 m_rect_lcd(),
-                 m_running(true)
+    App::App() :
+        gb(std::make_unique<GameBoy>()),
+        m_window(nullptr),
+        m_renderer(nullptr),
+        m_rect_lcd(),
+        m_running(true)
     {
     }
 
@@ -35,10 +37,9 @@ namespace emulator
         m_init();
 
         SDL_Event e;
-
         while (m_running)
         {
-            auto run = high_resolution_clock::now();
+            auto start = high_resolution_clock::now();
             while (SDL_PollEvent(&e))
             {
                 m_event(&e);
@@ -46,12 +47,14 @@ namespace emulator
 
             m_update();
             m_render();
-
             auto end = high_resolution_clock::now();
-            double elapsed_time = duration_cast<milliseconds>(end - run).count();
-            auto sleep_time = FRAME_DURATION_MS - elapsed_time;
+            
+            auto elapsed_time = (nanoseconds(FRAME_DURATION_NS) - duration_cast<nanoseconds>(end - start)).count();
 
-            //std::this_thread::sleep_for(sleep_time * 1ms);
+            if (elapsed_time > 0)
+            {
+                nsleep(elapsed_time);
+            }
         }
     }
 
@@ -161,7 +164,7 @@ namespace emulator
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Hello, world! pute");
+        ImGui::Begin("Hello, world!");
         ImGui::Text("Frametime: %.3f ms (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         ImGui::End();
 

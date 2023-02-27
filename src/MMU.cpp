@@ -511,4 +511,3 @@ namespace emulator
         return (m_boot_rom != nullptr);
     }
 }
-

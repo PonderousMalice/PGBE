@@ -61,4 +61,3 @@ namespace emulator
         m_mmu.p_input.at(b) = pressed;
     }
 }
-
