@@ -51,11 +51,11 @@ namespace emulator
         sleepTime.QuadPart = -(nanoseconds / 100LL);
 
         timer = CreateWaitableTimer(nullptr, true, nullptr);
-        SetWaitableTimer(timer, &sleepTime, 0, nullptr, nullptr, false);
         if (timer == nullptr)
         {
             exit(1);
         }
+        SetWaitableTimer(timer, &sleepTime, 0, nullptr, nullptr, false);
         if (WaitForSingleObject(timer, INFINITE) != WAIT_OBJECT_0)
         {
             exit(1);

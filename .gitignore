@@ -36,4 +36,5 @@
 *.gb
 subprojects/
 imgui.ini
+.vs
 .vscode

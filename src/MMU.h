@@ -136,9 +136,8 @@ namespace emulator
         }
         m_mbc_type;
         
-        int m_rom_bank_00;
-        int m_rom_bank_01;
-        int m_ram_bank_00;
+        int m_rom_bank_nb;
+        int m_ram_bank_nb;
 
         int m_rom_size; // bank nb
         int m_ram_size;

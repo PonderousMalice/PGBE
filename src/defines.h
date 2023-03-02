@@ -13,7 +13,7 @@ namespace emulator
     constexpr auto VIEWPORT_HEIGHT = 144;
     constexpr auto VIEWPORT_BUFFER_SIZE = VIEWPORT_HEIGHT * VIEWPORT_WIDTH;
 
-    constexpr auto WINDOW_WIDTH = 1280;
+    constexpr auto WINDOW_WIDTH = 800;
     constexpr auto WINDOW_HEIGHT = 720;
 
     constexpr auto NB_SCANLINES = 154;

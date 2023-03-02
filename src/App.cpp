@@ -68,7 +68,7 @@ namespace emulator
 
         SDL_WindowFlags windows_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
         m_window = SDL_CreateWindow("Prolix GB", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, windows_flags);
-        m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
+        m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_ACCELERATED);
 
         if (m_renderer == nullptr)
         {
@@ -143,6 +143,12 @@ namespace emulator
             case SDLK_z:
                 gb->use_button(GB_START, pressed);
                 break;
+            case SDLK_d:
+                if (pressed)
+                {
+                    m_show_main_menu_bar = !m_show_main_menu_bar;
+                }
+                break;
             }
             break;
         }
@@ -164,9 +170,7 @@ namespace emulator
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Hello, world!");
-        ImGui::Text("Frametime: %.3f ms (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::End();
+        RenderGUI();
 
         ImGui::Render();
 
@@ -215,5 +219,46 @@ namespace emulator
         m_rect_lcd.y = ycenter - (gb_height / 2);
         m_rect_lcd.w = gb_width;
         m_rect_lcd.h = gb_height;
+    }
+
+    void App::PerfWindow()
+    {
+        ImGuiIO &io = ImGui::GetIO();
+
+        ImGui::Begin("Perf Info");
+        ImGui::Text("Frametime: %.3f ms (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::End();
+    }
+
+    void App::MainMenuBar()
+    {
+        ImGui::BeginMainMenuBar();
+        if (ImGui::BeginMenu("File"))
+        {
+            ImGui::MenuItem("Open");
+            ImGui::MenuItem("Open Recent");
+            ImGui::MenuItem("About");
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Debug"))
+        {
+            ImGui::Checkbox("VRAM Viewer", &m_show_vram);
+            ImGui::Checkbox("Memory Viewer", &m_show_memory);
+            ImGui::Checkbox("Performance Info", &m_show_perf);
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+
+    void App::RenderGUI()
+    {
+        if (m_show_main_menu_bar)
+        {
+            MainMenuBar();
+        }
+        if (m_show_perf)
+        {
+            PerfWindow();
+        }
     }
 }

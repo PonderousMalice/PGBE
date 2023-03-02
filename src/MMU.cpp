@@ -32,9 +32,8 @@ namespace emulator
         m_mode_flag(false),
         m_ram_size(0),
         m_rom_size(0),
-        m_ram_bank_00(0),
-        m_rom_bank_00(0),
-        m_rom_bank_01(1)
+        m_ram_bank_nb(0),
+        m_rom_bank_nb(1)
     {
         m_boot_rom->fill(0x00);
         vram->fill(0);
@@ -84,6 +83,11 @@ namespace emulator
 
         auto p = get_host_adr(adr);
 
+        if (m_mbc_type == MBC2)
+        {
+            return (0xF0 | (*p & 0xF));
+        }
+
         return (p == nullptr) ? 0xFF : *p;
     }
 
@@ -106,6 +110,12 @@ namespace emulator
             }
             else if (0x2000 <= adr && adr <= 0x3FFF) // ROM Bank
             {
+                if (v == 0)
+                {
+                    m_rom_bank_nb = 1;
+                    return;
+                }
+
                 u8 mask = 0;
                 switch (m_rom_size)
                 {
@@ -128,24 +138,76 @@ namespace emulator
                     break;
                 }
 
-                if (v == 0)
-                {
-                    m_rom_bank_01 = 1;
-                }
-                else
-                {
-                    m_rom_bank_01 = (v & mask);
-                }
+                m_rom_bank_nb = v & mask;                
             }
             else if (0x4000 <= adr && adr <= 0x5FFF) // RAM Bank
             {
-                m_ram_bank_00 = v & 0b11;
+                m_ram_bank_nb = v & 0b11;
             }
             else if (0x6000 <= adr && adr <= 0x7FFF) // Mode Select
             {
                 m_mode_flag = ((v & 0b1) == 1);
             }
             break;
+        case MBC2:
+            if (0x0000 <= adr && adr <= 0x3FFF)
+            {
+                bool ch_ram = ((adr & 0x100) == 0);
+                if (ch_ram)
+                {
+                    if ((v & 0xF) == 0xA)
+                    {
+                        m_ext_ram_enabled = true;
+                    }
+                    else
+                    {
+                        m_ext_ram_enabled = false;
+                    }
+                }
+                else
+                {
+                    m_rom_bank_nb = (v == 0) ? 1 : v;
+                }
+            }
+        break;
+        case MBC3:
+        // TO DO : impl rtc stuff
+            if (0x0000 <= adr && adr <= 0x1FFF)
+            {
+                m_ext_ram_enabled = ((v & 0x0F) == 0x0A);
+            }
+            else if (0x2000 <= adr && adr <= 0x3FFF)
+            {
+                m_rom_bank_nb = (v == 0) ? 1 : (v & 0xF);
+            }
+            else if (0x4000 <= adr && adr <= 0x5FFF)
+            {
+                if (0x00 <= v && v <= 0x03)
+                {
+                    m_ram_bank_nb = v;
+                }
+            }
+        break;
+        case MBC5:
+            if (0x0000 <= adr && adr <= 0x1FFF)
+            {
+                m_ext_ram_enabled = ((v & 0x0F) == 0x0A);
+            }
+            else if (0x2000 <= adr && adr <= 0x2FFF)
+            {
+                m_rom_bank_nb &= 0xFF00;
+                m_rom_bank_nb |= v;
+            }
+            else if (0x3000 <= adr && adr <= 0x3FFF)
+            {
+                m_rom_bank_nb &= 0x00FF;
+                m_rom_bank_nb |= ((v & 0x01) << 8);
+            }
+            else if (0x4000 <= adr && adr <= 0x5FFF)
+            {
+                m_ram_bank_nb = v;
+            }
+        break;
         default:
             break;
         }
@@ -158,6 +220,11 @@ namespace emulator
         auto p = get_host_adr(adr);
         if (p != nullptr)
         {
+            if (m_mbc_type == MBC2)
+            {
+                *p = (v & 0xF);
+            }
+
             *p = v;
         }
 
@@ -206,18 +273,20 @@ namespace emulator
 
             if (m_mode_flag)
             {
+                int zero_bank_nb = 0;
+
                 if (m_rom_size == 64)
                 {
                     // not workign for MBC1M 
-                    m_rom_bank_00 = (m_ram_bank_00 & 0b1) << 5;
+                    zero_bank_nb = (m_ram_bank_nb & 0b1) << 5;
                 }
 
                 if (m_rom_size == 128)
                 {
-                    m_rom_bank_00 = (m_ram_bank_00 & 0b11) << 5;
+                    zero_bank_nb = (m_ram_bank_nb & 0b11) << 5;
                 }
 
-                return m_rom_gb.data() + (m_rom_bank_00 * 0x4000) + gb_adr;
+                return m_rom_gb.data() + (zero_bank_nb * 0x4000) + gb_adr;
             }
             else
             {
@@ -234,17 +303,17 @@ namespace emulator
 
             if (m_rom_size == 64)
             {
-                m_rom_bank_01 &= ~(0b1 << 5);
-                m_rom_bank_01 |= ((m_ram_bank_00 & 0b1) << 5);
+                m_rom_bank_nb &= ~(0b1 << 5);
+                m_rom_bank_nb |= ((m_ram_bank_nb & 0b1) << 5);
             }
 
             if (m_rom_size == 128)
             {
-                m_rom_bank_01 &= ~(0b11 << 5);
-                m_rom_bank_01 |= ((m_ram_bank_00 & 0b11) << 5);
+                m_rom_bank_nb &= ~(0b11 << 5);
+                m_rom_bank_nb |= ((m_ram_bank_nb & 0b11) << 5);
             }
 
-            return m_rom_gb.data() + (m_rom_bank_01 * 0x4000) + (gb_adr - 0x4000);
+            return m_rom_gb.data() + (m_rom_bank_nb * 0x4000) + (gb_adr - 0x4000);
         }
         else if (0x8000 <= gb_adr && gb_adr <= 0x9FFF)
         {
@@ -254,6 +323,13 @@ namespace emulator
         {
             if (m_ext_ram_enabled)
             {
+                if (m_mbc_type == MBC2)
+                {
+                    gb_adr &= 0x1FF;
+
+                    return m_ext_ram.data() + gb_adr;
+                }
+
                 gb_adr -= 0xA000;
                 if (m_ram_size <= 8192)
                 {
@@ -261,7 +337,7 @@ namespace emulator
                 }
                 else if (m_mode_flag)
                 {
-                    gb_adr += 0x2000 * m_ram_bank_00;
+                    gb_adr += 0x2000 * m_ram_bank_nb;
                 }
 
                 return m_ext_ram.data() + gb_adr;
@@ -501,7 +577,7 @@ namespace emulator
     {
         //  HRAM is not affected by DMA transfers
         return
-            (gb_adr < 0x4000) // ROM 
+            (gb_adr < 0x8000) // ROM 
             || (0x8000 <= gb_adr && gb_adr <= 0x9FFF && (m_STAT.ppu_mode > 2)) // VRAM
             || (0xFE00 <= gb_adr && gb_adr <= 0xFE9F && (m_STAT.ppu_mode > 1)); // OAM
     }
