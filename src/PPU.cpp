@@ -78,7 +78,7 @@ namespace emulator
                 }
 
                 m_check_coincidence();
-                //m_stat_triggered = false;
+                m_stat_triggered = false;
             }
             break;
         case V_BLANK:

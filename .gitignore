@@ -31,10 +31,9 @@
 *.out
 *.app
 
-*.log
-*.bin
-*.gb
 subprojects/
+DMG_ROM.bin
 imgui.ini
 .vs
 .vscode
+*.log
