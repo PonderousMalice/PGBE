@@ -1,6 +1,6 @@
-#include <algorithm>
-#include "utils.h"
 #include "PPU.h"
+#include "utils.h"
+#include <algorithm>
 
 namespace PGBE
 {
@@ -210,11 +210,11 @@ namespace PGBE
         switch (px.pal)
         {
         case BGP:
-            return m_dmg_color.at(bg_pal.at(px.index));
+            return dmg_color.at(bg_pal.at(px.index));
         case OBP0:
-            return m_dmg_color.at(obj_pal0.at(px.index));
+            return dmg_color.at(obj_pal0.at(px.index));
         case OBP1:
-            return m_dmg_color.at(obj_pal1.at(px.index));
+            return dmg_color.at(obj_pal1.at(px.index));
         default:
             return { .r = 0, .g = 0, .b = 0 };
         }

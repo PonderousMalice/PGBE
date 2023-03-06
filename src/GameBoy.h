@@ -4,8 +4,8 @@
 #include "PPU.h"
 #include "SM83.h"
 #include "Timer.h"
-#include <string_view>
 #include <SDL.h>
+#include <string_view>
 
 namespace PGBE
 {

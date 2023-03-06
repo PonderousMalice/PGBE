@@ -74,6 +74,34 @@ namespace PGBE
         int index;
     };
 
+    constexpr std::array<color, 4> dmg_color
+    {
+        color
+        {
+            .r = 224,
+            .g = 248,
+            .b = 208
+        }, // "White"
+        color
+        {
+            .r = 136,
+            .g = 192,
+            .b = 112
+        }, // "Light Grey"
+        color
+        {
+            .r = 52,
+            .g = 104,
+            .b = 86
+        }, // "Dark Grey"
+        color
+        {
+            .r = 8,
+            .g = 24,
+            .b = 32
+        }, // "Black"
+    };
+
     class PPU
     {
     public:
@@ -84,34 +112,6 @@ namespace PGBE
         color get_color(int x, int y);
         bool frame_completed();
     private:
-        inline static const std::array<color, 4> m_dmg_color
-        {
-            color
-            {
-                .r = 224,
-                .g = 248,
-                .b = 208
-            }, // "White"
-            color
-            {
-                .r = 136,
-                .g = 192,
-                .b = 112
-            }, // "Light Grey"
-            color
-            {
-                .r = 52,
-                .g = 104,
-                .b = 86
-            }, // "Dark Grey"
-            color
-            {
-                .r = 8,
-                .g = 24,
-                .b = 32
-            }, // "Black"
-        };
-
         LCD_C& m_LCDC;
         STAT_REG& m_STAT;
         u8& m_LY, & m_SCX, & m_SCY,
