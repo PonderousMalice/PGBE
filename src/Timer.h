@@ -3,7 +3,7 @@
 #include "PPU.h"
 #include <functional>
 
-namespace emulator
+namespace PGBE
 {
     struct Task
     {

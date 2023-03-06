@@ -10,7 +10,6 @@ project_src = [
     'src/main.cpp',
     'src/imgui_impl_sdlrenderer.cpp',
     'src/imgui_impl_sdl2.cpp',
-    'src/App.cpp',
     'src/GameBoy.cpp',
     'src/MMU.cpp',
     'src/PPU.cpp',

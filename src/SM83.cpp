@@ -4,7 +4,7 @@
 #include <functional>
 #include <stdexcept>
 
-namespace emulator
+namespace PGBE
 {
     template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
 

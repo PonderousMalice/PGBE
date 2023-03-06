@@ -1,7 +1,7 @@
 #include "Timer.h"
 #include "utils.h"
 
-namespace emulator
+namespace PGBE
 {
     Timer::Timer(MMU* mmu, PPU* ppu) :
         m_ppu(ppu),

@@ -1,14 +1,15 @@
 #pragma once
+#include "integers.h"
 #include "MMU.h"
 #include "PPU.h"
 #include "SM83.h"
 #include "Timer.h"
-#include <fstream>
-#include <memory>
 #include <string_view>
+#include <SDL.h>
 
-namespace emulator
+namespace PGBE
 {
+    constexpr auto BUTTON_START_LINE = __LINE__;
     enum GB_BUTTON
     {
         GB_UP = 2,
@@ -20,25 +21,36 @@ namespace emulator
         GB_START = 7,
         GB_SELECT = 6
     };
+    constexpr auto BUTTON_ENUM_SIZE = __LINE__ - BUTTON_START_LINE - 4;
 
-    class GameBoy
+    struct GB_MAP
     {
-    public:
-        GameBoy();
-        GameBoy(std::string_view rom_path);
+        GB_BUTTON b;
+        SDL_Keycode k;
+    };
 
-        void init();
+    struct GameBoy
+    {
+        MMU mmu;
+        PPU ppu;
+        Timer timer;
+        SM83 cpu;
+
+        bool show_perf;
+        bool show_memory;
+        bool show_vram;
+        bool show_main_menu_bar;
+
+        GameBoy();
+        ~GameBoy();
+
         void update();
-        color get_color(int x, int y);
+
+        void load_rom(std::string_view path);
+        void use_button(const GB_BUTTON b, const bool pressed);
+
         void reset_ppu();
 
-        void use_button(GB_BUTTON b, bool pressed);
-    private:
-        MMU m_mmu;
-        PPU m_ppu;
-        Timer m_timer;
-        SM83 m_cpu;
-        std::ofstream m_logs;
-        std::string m_rom_path;
+        color get_color(int x, int y);
     };
 }

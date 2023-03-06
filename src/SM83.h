@@ -5,7 +5,7 @@
 
 using std::placeholders::_1;
 
-namespace emulator
+namespace PGBE
 {
     using reg_t = std::variant<u8*, u16*>;
     using reg_v = std::variant<u8, u16>;

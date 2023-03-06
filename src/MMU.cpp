@@ -5,7 +5,7 @@
 #include <fmt/core.h>
 #include <fstream>
 
-namespace emulator
+namespace PGBE
 {
     MMU::MMU() :
         m_boot_rom(std::make_unique<std::array<u8, 256>>()),
@@ -236,10 +236,8 @@ namespace emulator
                 internal_div = 0;
                 break;
             case SB:
-                if (DEBUG_LOG_ENABLED)
-                {
-                    fmt::print("{:c}", v);
-                }
+            // DEBUG
+                fmt::print("{:c}", v);
                 break;
             case DMA:
                 timer->schedule_task(4, std::bind(&MMU::oam_dma_transfer, this, v));
@@ -371,9 +369,9 @@ namespace emulator
         return nullptr;
     }
 
-    void  MMU::load_boot_rom(std::string path)
+    void  MMU::load_boot_rom(std::string_view path)
     {
-        std::ifstream input(path, std::ios::binary);
+        std::ifstream input(std::string{path}, std::ios::binary);
 
         if (!input)
         {
@@ -384,9 +382,9 @@ namespace emulator
         input.read(reinterpret_cast<char*>(m_boot_rom.get()), m_boot_rom->size());
     }
 
-    void MMU::load_game_rom(std::string path)
+    void MMU::load_game_rom(std::string_view path)
     {
-        std::ifstream input(path, std::ios::binary);
+        std::ifstream input(std::string{path}, std::ios::binary);
         m_rom_gb = std::vector<u8>((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
 
         u8 mbc_type = m_rom_gb.at(0x147);

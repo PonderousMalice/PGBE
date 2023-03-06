@@ -1,11 +1,30 @@
 #pragma once
-#include "defines.h"
 #include "MMU.h"
 #include <array>
 #include <span>
 #include <vector>
 
-namespace emulator
+constexpr auto GB_VIEWPORT_WIDTH = 160;
+constexpr auto GB_VIEWPORT_HEIGHT = 144;
+constexpr auto FRAMEBUFFER_SIZE = GB_VIEWPORT_WIDTH * GB_VIEWPORT_HEIGHT;
+
+constexpr auto VRAM_BASE = 0x8000;
+constexpr auto TILE_MAP_1 = 0x9800 - VRAM_BASE;
+constexpr auto TILE_MAP_2 = 0x9C00 - VRAM_BASE;
+constexpr auto TILE_DATA_1 = 0x8000 - VRAM_BASE;
+constexpr auto TILE_DATA_2 = 0x8800 - VRAM_BASE;
+
+constexpr auto SIZE_TILEMAP = 32 * 32;
+constexpr auto SIZE_TILEDATA = 384 * 16;
+
+constexpr auto NB_SCANLINES = 154;
+constexpr auto SCANLINE_DURATION = 456;                           // T-Cycles
+constexpr auto FRAME_DURATION = SCANLINE_DURATION * NB_SCANLINES; // T-Cycles
+constexpr auto FREQUENCY = 4 * (1 << 20);                         // 4 MiHz
+constexpr auto DOT = (1.0 / FREQUENCY) * 1'000'000'000;           // 1 T-Cycle duration (ns)
+constexpr auto FRAME_DURATION_NS = (u64)(DOT * FRAME_DURATION);
+
+namespace PGBE
 {
     union LCD_C
     {
@@ -102,7 +121,7 @@ namespace emulator
         std::span<u8, 0x2000> m_vram;
         std::span<u8, 0x00A0> m_oam;
 
-        std::array<gb_px, VIEWPORT_BUFFER_SIZE> m_framebuffer;
+        std::array<gb_px, FRAMEBUFFER_SIZE> m_framebuffer;
         std::vector<sprite_attributes> m_sprite_buffer;
         
         int m_cur_cycle_in_scanline;

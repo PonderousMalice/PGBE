@@ -1,12 +1,13 @@
 #pragma once
+#include "integers.h"
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <string>
 #include <vector>
-#include "defines.h"
 
-namespace emulator
+namespace PGBE
 {
     union STAT_REG
     {
@@ -96,8 +97,8 @@ namespace emulator
 
         void oam_dma_transfer(u8 src);
 
-        void load_boot_rom(std::string path);
-        void load_game_rom(std::string path);
+        void load_boot_rom(std::string_view path);
+        void load_game_rom(std::string_view path);
 
         std::unique_ptr<std::array<u8, 0x2000>> vram;
         std::unique_ptr<std::array<u8, 0x2000>> wram;

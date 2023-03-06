@@ -2,7 +2,7 @@
 #include "utils.h"
 #include "PPU.h"
 
-namespace emulator
+namespace PGBE
 {
     PPU::PPU(MMU* mmu) :
         m_LCDC((LCD_C&)mmu->io_reg->at(LCDC)),
@@ -100,7 +100,7 @@ namespace emulator
     {
         bool increase_win = false;
 
-        for (int x_pos = 0; x_pos < VIEWPORT_WIDTH; ++x_pos)
+        for (int x_pos = 0; x_pos < GB_VIEWPORT_WIDTH; ++x_pos)
         {
             bool should_fetch_win =
                 (m_LCDC.win_enable == 1) &&
@@ -138,7 +138,7 @@ namespace emulator
 
     void PPU::write_framebuffer(int x_pos, gb_px px)
     {
-        m_framebuffer.at(x_pos + m_LY * VIEWPORT_WIDTH) = px;
+        m_framebuffer.at(x_pos + m_LY * GB_VIEWPORT_WIDTH) = px;
     }
 
     void PPU::m_scan_oam()
@@ -205,7 +205,7 @@ namespace emulator
                 ((m_OBP1 >> 6) & 0b11),
         };
 
-        auto px = m_framebuffer.at(x + y * VIEWPORT_WIDTH);
+        auto px = m_framebuffer.at(x + y * GB_VIEWPORT_WIDTH);
 
         switch (px.pal)
         {
@@ -400,7 +400,7 @@ namespace emulator
                     int xf = base_x + i;
                     if (xf >= 0 && xf < 160)
                     {
-                        auto bg_color = m_framebuffer.at(xf + m_LY * VIEWPORT_WIDTH);
+                        auto bg_color = m_framebuffer.at(xf + m_LY * GB_VIEWPORT_WIDTH);
                         bool bg_color_is_white = (bg_color.index == 0);
 
                         if ((obj.flags.obj_to_bg_prio == 0) || bg_color_is_white)
