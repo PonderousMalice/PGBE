@@ -109,8 +109,9 @@ namespace PGBE
 
         void tick();
         void reset();
-        color get_color(int x, int y);
         bool frame_completed();
+
+        std::array<color, FRAMEBUFFER_SIZE>* framebuffer;
     private:
         LCD_C& m_LCDC;
         STAT_REG& m_STAT;
@@ -121,7 +122,6 @@ namespace PGBE
         std::span<u8, 0x2000> m_vram;
         std::span<u8, 0x00A0> m_oam;
 
-        std::array<gb_px, FRAMEBUFFER_SIZE> m_framebuffer;
         std::vector<sprite_attributes> m_sprite_buffer;
         
         int m_cur_cycle_in_scanline;
@@ -147,10 +147,6 @@ namespace PGBE
 
         int m_get_tile_data(int tile_id, int x, int y);
 
-        gb_px m_fetch_win(int x_pos);
-        gb_px m_fetch_bg(int x_pos);
-        void m_fetch_obj();
-
-        void write_framebuffer(int x_pos, gb_px px);
+        void m_write_to_framebuffer(int x, color col);
     };
 }

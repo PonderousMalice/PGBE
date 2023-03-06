@@ -26,14 +26,9 @@ namespace PGBE
         m_state(H_BLANK),
         m_drawing_cycle_nb(172)
     {
-        m_framebuffer.fill(
-            gb_px
-            {
-            .pal = BGP,
-            .index = 0
-            });
         m_sprite_buffer.reserve(10);
         m_STAT.unused = 1;
+        framebuffer = nullptr;
     }
 
     void PPU::tick()
@@ -99,6 +94,31 @@ namespace PGBE
     void PPU::m_draw_scanline()
     {
         bool increase_win = false;
+        int bg_pal_idx = 0;
+
+        const std::array<int, 4> bg_pal
+        {
+            (m_BGP & 0b11),
+            ((m_BGP >> 2) & 0b11),
+            ((m_BGP >> 4) & 0b11),
+            ((m_BGP >> 6) & 0b11),
+        };
+
+        const std::array<int, 4> obj_pal0
+        {
+            (m_OBP0 & 0b11),
+            ((m_OBP0 >> 2) & 0b11),
+            ((m_OBP0 >> 4) & 0b11),
+            ((m_OBP0 >> 6) & 0b11),
+        };
+
+        const std::array<int, 4> obj_pal1
+        {
+            (m_OBP1 & 0b11),
+            ((m_OBP1 >> 2) & 0b11),
+            ((m_OBP1 >> 4) & 0b11),
+            ((m_OBP1 >> 6) & 0b11),
+        };
 
         for (int x_pos = 0; x_pos < GB_VIEWPORT_WIDTH; ++x_pos)
         {
@@ -115,14 +135,30 @@ namespace PGBE
             {
                 increase_win = true;
 
-                write_framebuffer(x_pos, m_fetch_win(x_pos));
+                auto win_tile_map = m_vram.subspan((m_LCDC.win_tile_map_select == 1) ? TILE_MAP_2 : TILE_MAP_1, SIZE_TILEMAP);
+
+                int x = x_pos - m_WX + 7;
+                int y = m_window_line_counter;
+
+                int tile_id = win_tile_map[((y / 8) * 32) + (x / 8)];
+
+                bg_pal_idx = m_get_tile_data(tile_id, x, y);
             }
 
             // bg
             if ((m_LCDC.bg_win_enable == 1) && (!should_fetch_win))
             {
-                write_framebuffer(x_pos, m_fetch_bg(x_pos));
+                auto bg_tile_map = m_vram.subspan((m_LCDC.bg_tile_map_select == 1) ? TILE_MAP_2 : TILE_MAP_1, SIZE_TILEMAP);
+
+                int x = x_pos + m_SCX;
+                int y = m_LY + m_SCY;
+
+                int tile_id = bg_tile_map[((x / 8) & 0x1F) + (32 * ((y / 8) & 0x1F))];
+            
+                bg_pal_idx = m_get_tile_data(tile_id, x, y);
             }
+
+            framebuffer->at(x_pos + m_LY * GB_VIEWPORT_WIDTH) = dmg_color.at(bg_pal.at(bg_pal_idx));
         }
 
         if (increase_win)
@@ -132,13 +168,89 @@ namespace PGBE
 
         if (m_LCDC.obj_enable == 1)
         {
-            m_fetch_obj();
+            const color bgp_white = dmg_color.at(bg_pal.at(0));
+
+            m_scan_oam();
+
+            std::reverse(m_sprite_buffer.begin(), m_sprite_buffer.end());
+            std::sort(m_sprite_buffer.begin(), m_sprite_buffer.end(),
+                      [](sprite_attributes obj1, sprite_attributes obj2)
+                      { return obj1.x_pos > obj2.x_pos; });
+
+            for (int i = 0; i < m_sprite_buffer.size(); ++i)
+            {
+                auto &obj = m_sprite_buffer.at(i);
+
+                u8 obj_y = (m_LY - (obj.y_pos - 16));
+
+                u16 offset = (obj.flags.y_flip == 0) ? 2 * (obj_y % 8) : 2 * (7 - (obj_y % 8));
+
+                auto cur_obj_pal = (obj.flags.palette_nb == 0) ? obj_pal0 : obj_pal1;
+
+                auto tile_data = m_vram.subspan(TILE_DATA_1, SIZE_TILEDATA);
+                auto tile_id = obj.tile_id;
+
+                bool isTall = m_LCDC.obj_size;
+
+                if (isTall)
+                {
+                    if (obj_y < 8)
+                    {
+                        if (obj.flags.y_flip)
+                        {
+                            tile_id |= 0b1;
+                        }
+                        else
+                        {
+                            tile_id &= 0xFE;
+                        }
+                    }
+                    else
+                    {
+                        if (obj.flags.y_flip)
+                        {
+                            tile_id &= 0xFE;
+                        }
+                        else
+                        {
+                            tile_id |= 0b1;
+                        }
+                    }
+                }
+
+                auto data = &tile_data[(tile_id * 16) + offset];
+
+                int base_x = obj.x_pos - 8;
+                for (int i = 0; i < 8; ++i)
+                {
+                    int x = (obj.flags.x_flip == 0) ? 7 - (i % 8) : (i % 8);
+
+                    auto obj_pal_idx = ((*data >> x) & 1) | ((((*(data + 1)) >> x) << 1) & 2);
+
+                    if (obj_pal_idx != 0)
+                    {
+                        int xf = base_x + i;
+                        if (xf >= 0 && xf < 160)
+                        {
+                            color bg_col = framebuffer->at(x + m_LY * GB_VIEWPORT_WIDTH);
+                            bool bg_color_is_white = (bg_col.r == bgp_white.r) 
+                                && (bg_col.g == bgp_white.g) 
+                                && (bg_col.b == bgp_white.b);
+
+                            if ((obj.flags.obj_to_bg_prio == 0) || bg_color_is_white)
+                            {
+                                m_write_to_framebuffer(xf, dmg_color.at(cur_obj_pal.at(obj_pal_idx)));
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
-    void PPU::write_framebuffer(int x_pos, gb_px px)
+    void PPU::m_write_to_framebuffer(int x, color col)
     {
-        m_framebuffer.at(x_pos + m_LY * GB_VIEWPORT_WIDTH) = px;
+        framebuffer->at(x + m_LY * GB_VIEWPORT_WIDTH) = col;
     }
 
     void PPU::m_scan_oam()
@@ -179,59 +291,13 @@ namespace PGBE
         return m_frame_completed;
     }
 
-    color PPU::get_color(int x, int y)
-    {
-        const std::array<int, 4> bg_pal
-        {
-            (m_BGP & 0b11),
-                ((m_BGP >> 2) & 0b11),
-                ((m_BGP >> 4) & 0b11),
-                ((m_BGP >> 6) & 0b11),
-        };
-
-        const std::array<int, 4> obj_pal0
-        {
-            (m_OBP0 & 0b11),
-                ((m_OBP0 >> 2) & 0b11),
-                ((m_OBP0 >> 4) & 0b11),
-                ((m_OBP0 >> 6) & 0b11),
-        };
-
-        const std::array<int, 4> obj_pal1
-        {
-            (m_OBP1 & 0b11),
-                ((m_OBP1 >> 2) & 0b11),
-                ((m_OBP1 >> 4) & 0b11),
-                ((m_OBP1 >> 6) & 0b11),
-        };
-
-        auto px = m_framebuffer.at(x + y * GB_VIEWPORT_WIDTH);
-
-        switch (px.pal)
-        {
-        case BGP:
-            return dmg_color.at(bg_pal.at(px.index));
-        case OBP0:
-            return dmg_color.at(obj_pal0.at(px.index));
-        case OBP1:
-            return dmg_color.at(obj_pal1.at(px.index));
-        default:
-            return { .r = 0, .g = 0, .b = 0 };
-        }
-    }
-
     void PPU::reset()
     {
         m_switch_mode(OAM_SCAN);
         m_LY = 0;
-        m_framebuffer.fill(
-            gb_px
-            {
-            .pal = BGP,
-            .index = 0
-            });
         m_frame_completed = false;
         m_window_line_counter = 0;
+        framebuffer->fill(color{.r = 0, .g = 0, .b = 0});
     }
 
     void PPU::m_check_stat()
@@ -303,113 +369,5 @@ namespace PGBE
         auto pal_idx = ((*data >> x) & 1) | ((((*(data + 1)) >> x) << 1) & 2);
 
         return pal_idx;
-    }
-
-    gb_px PPU::m_fetch_win(int x_pos)
-    {
-        auto win_tile_map = m_vram.subspan((m_LCDC.win_tile_map_select == 1) ? TILE_MAP_2 : TILE_MAP_1, SIZE_TILEMAP);
-
-        int x = x_pos - m_WX + 7;
-        int y = m_window_line_counter;
-
-        int tile_id = win_tile_map[((y / 8) * 32) + (x / 8)];
-
-        return
-        {
-            .pal = BGP,
-            .index = m_get_tile_data(tile_id, x, y),
-        };
-    }
-
-    gb_px PPU::m_fetch_bg(int x_pos)
-    {
-        auto bg_tile_map = m_vram.subspan((m_LCDC.bg_tile_map_select == 1) ? TILE_MAP_2 : TILE_MAP_1, SIZE_TILEMAP);
-
-        int x = x_pos + m_SCX;
-        int y = m_LY + m_SCY;
-
-        int tile_id = bg_tile_map[((x / 8) & 0x1F) + (32 * ((y / 8) & 0x1F))];
-
-        return
-        {
-            .pal = BGP,
-            .index = m_get_tile_data(tile_id, x, y),
-        };
-    }
-
-    void PPU::m_fetch_obj()
-    {
-        m_scan_oam();
-
-        std::reverse(m_sprite_buffer.begin(), m_sprite_buffer.end());
-        std::sort(m_sprite_buffer.begin(), m_sprite_buffer.end(),
-            [](sprite_attributes obj1, sprite_attributes obj2) { return obj1.x_pos > obj2.x_pos; });
-
-        for (int i = 0; i < m_sprite_buffer.size(); ++i)
-        {
-            auto& obj = m_sprite_buffer.at(i);
-
-            u8 obj_y = (m_LY - (obj.y_pos - 16));
-
-            u16 offset = (obj.flags.y_flip == 0) ? 2 * (obj_y % 8) : 2 * (7 - (obj_y % 8));
-
-            auto obj_pal = (obj.flags.palette_nb == 0) ? OBP0 : OBP1;
-
-            auto tile_data = m_vram.subspan(TILE_DATA_1, SIZE_TILEDATA);
-            auto tile_id = obj.tile_id;
-
-            bool isTall = m_LCDC.obj_size;
-
-            if (isTall)
-            {
-                if (obj_y < 8)
-                {
-                    if (obj.flags.y_flip)
-                    {
-                        tile_id |= 0b1;
-                    }
-                    else
-                    {
-                        tile_id &= 0xFE;
-                    }
-                }
-                else
-                {
-                    if (obj.flags.y_flip)
-                    {
-                        tile_id &= 0xFE;
-                    }
-                    else
-                    {
-                        tile_id |= 0b1;
-                    }
-                }
-            }
-
-            auto data = &tile_data[(tile_id * 16) + offset];
-
-            int base_x = obj.x_pos - 8;
-            for (int i = 0; i < 8; ++i)
-            {
-                int x = (obj.flags.x_flip == 0) ? 7 - (i % 8) : (i % 8);
-
-                auto pal_idx = ((*data >> x) & 1) | ((((*(data + 1)) >> x) << 1) & 2);
-
-                if (pal_idx != 0)
-                {
-                    int xf = base_x + i;
-                    if (xf >= 0 && xf < 160)
-                    {
-                        auto bg_color = m_framebuffer.at(xf + m_LY * GB_VIEWPORT_WIDTH);
-                        bool bg_color_is_white = (bg_color.index == 0);
-
-                        if ((obj.flags.obj_to_bg_prio == 0) || bg_color_is_white)
-                        {
-                            write_framebuffer(xf, { .pal = obj_pal, .index = pal_idx, });
-                        }
-                    }
-                }
-            }
-        }
     }
 }

@@ -44,13 +44,6 @@ namespace PGBE
         GameBoy();
         ~GameBoy();
 
-        void update();
-
-        void load_rom(std::string_view path);
         void use_button(const GB_BUTTON b, const bool pressed);
-
-        void reset_ppu();
-
-        color get_color(int x, int y);
     };
 }

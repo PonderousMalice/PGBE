@@ -6,6 +6,7 @@
 #include <chrono>
 #include <memory>
 #include <SDL.h>
+#include <bit>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -96,9 +97,19 @@ static void nsleep(u64 nanoseconds)
 #endif
 }
 
-static void on_update()
+static void on_update(SDL_Texture* texture)
 {
-    gb->update();
+    u8 *pixels;
+    int pitch;
+    SDL_LockTexture(texture, nullptr, (void **)&pixels, &pitch);
+
+    gb->ppu.framebuffer = std::bit_cast<std::array<PGBE::color, FRAMEBUFFER_SIZE>*>(pixels);
+    while (!gb->ppu.frame_completed())
+    {
+        gb->cpu.run();
+    }
+
+    SDL_UnlockTexture(texture);
 }
 
 static void on_render(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect* rect)
@@ -118,30 +129,12 @@ static void on_render(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect* re
 
     SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
-    u8 *pixels;
-    int pitch;
-
-    SDL_LockTexture(texture, nullptr, (void **)&pixels, &pitch);
-    for (int i = 0; i < pitch * GB_VIEWPORT_HEIGHT; i += 3)
-    {
-        int j = (i / 3);
-        int x = j % GB_VIEWPORT_WIDTH,
-            y = (j - x) / GB_VIEWPORT_WIDTH;
-
-        auto color = gb->get_color(x, y);
-
-        pixels[i] = color.r;
-        pixels[i + 1] = color.g;
-        pixels[i + 2] = color.b;
-    }
-    SDL_UnlockTexture(texture);
-
     SDL_RenderCopy(renderer, texture, nullptr, rect);
 
     ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
     SDL_RenderPresent(renderer);
 
-    gb->reset_ppu();
+    gb->ppu.reset();
 }
 
 static void on_resize(SDL_Window* window, SDL_Rect* rect_lcd)
@@ -243,7 +236,7 @@ int main(int argc, char* argv[])
                 break;
             case SDL_DROPFILE:
                 gb_reset();
-                gb->load_rom(e.drop.file);
+                gb->mmu.load_game_rom(e.drop.file);
                 SDL_free(e.drop.file);
                 break;
             case SDL_WINDOWEVENT:
@@ -258,7 +251,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        on_update();
+        on_update(lcd_texture);
         on_render(renderer, lcd_texture, &lcd_rect);
         auto end = high_resolution_clock::now();
 
