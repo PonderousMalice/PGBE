@@ -3,13 +3,15 @@
 #include "imgui_impl_sdlrenderer.h"
 #include "imgui.h"
 #include "integers.h"
+#include <bit>
 #include <chrono>
 #include <memory>
 #include <SDL.h>
-#include <bit>
 
 #ifdef _WIN32
 #include <windows.h>
+#elif __linux__
+#include <time.h>
 #endif
 
 using namespace std::chrono;
@@ -94,6 +96,15 @@ static void nsleep(u64 nanoseconds)
         exit(1);
     }
     CloseHandle(timer);
+#elif __linux__
+    timespec req =
+    {
+        .tv_nsec = static_cast<__syscall_slong_t>(nanoseconds)
+    };
+
+    timespec rem;
+
+    nanosleep(&req, &rem);
 #endif
 }
 
@@ -102,7 +113,6 @@ static void on_update(SDL_Texture* texture)
     u8 *pixels;
     int pitch;
     SDL_LockTexture(texture, nullptr, (void **)&pixels, &pitch);
-
     gb->ppu.framebuffer = std::bit_cast<std::array<PGBE::color, FRAMEBUFFER_SIZE>*>(pixels);
     while (!gb->ppu.frame_completed())
     {

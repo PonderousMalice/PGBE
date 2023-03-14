@@ -24,11 +24,11 @@ namespace PGBE
         m_frame_completed(false),
         m_stat_triggered(false),
         m_state(H_BLANK),
-        m_drawing_cycle_nb(172)
+        m_drawing_cycle_nb(172),
+        framebuffer(nullptr)
     {
         m_sprite_buffer.reserve(10);
         m_STAT.unused = 1;
-        framebuffer = nullptr;
     }
 
     void PPU::tick()

@@ -110,7 +110,7 @@ namespace PGBE
                 {
                     union
                     {
-                        struct flag
+                        struct
                         {
                             u8 : 4; // padding
                             u8 c : 1;
