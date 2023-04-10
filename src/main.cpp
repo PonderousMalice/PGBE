@@ -21,19 +21,9 @@ constexpr auto WINDOW_HEIGHT = 720;
 
 constexpr auto BOOT_ROM_PATH = "DMG_ROM.bin";
 
-std::unique_ptr<PGBE::GameBoy> gb = nullptr;
 double frametime = 0;
 
-static void gb_init()
-{
-    gb = std::make_unique<PGBE::GameBoy>();
-    gb->mmu.load_boot_rom(BOOT_ROM_PATH);
-}
-
-static void gb_reset()
-{
-    gb_init();
-}
+PGBE::GameBoy gb;
 
 static void perf_window()
 {
@@ -57,9 +47,9 @@ static void main_menu_bar()
     }
     if (ImGui::BeginMenu("Debug"))
     {
-        ImGui::Checkbox("VRAM Viewer", &gb->show_vram);
-        ImGui::Checkbox("Memory Viewer", &gb->show_memory);
-        ImGui::Checkbox("Performance Info", &gb->show_perf);
+        ImGui::Checkbox("VRAM Viewer", &gb.show_vram);
+        ImGui::Checkbox("Memory Viewer", &gb.show_memory);
+        ImGui::Checkbox("Performance Info", &gb.show_perf);
         ImGui::EndMenu();
     }
     ImGui::EndMainMenuBar();
@@ -67,11 +57,11 @@ static void main_menu_bar()
 
 static void render_gui()
 {
-    if (gb->show_main_menu_bar)
+    if (gb.show_main_menu_bar)
     {
         main_menu_bar();
     }
-    if (gb->show_perf)
+    if (gb.show_perf)
     {
         perf_window();
     }
@@ -113,10 +103,10 @@ static void on_update(SDL_Texture* texture)
     u8 *pixels;
     int pitch;
     SDL_LockTexture(texture, nullptr, (void **)&pixels, &pitch);
-    gb->ppu.framebuffer = std::bit_cast<std::array<PGBE::color, FRAMEBUFFER_SIZE>*>(pixels);
-    while (!gb->ppu.frame_completed())
+    gb.ppu.framebuffer = std::bit_cast<std::array<PGBE::color, FRAMEBUFFER_SIZE>*>(pixels);
+    while (!gb.ppu.frame_completed())
     {
-        gb->cpu.run();
+        gb.cpu.run();
     }
 
     SDL_UnlockTexture(texture);
@@ -144,7 +134,7 @@ static void on_render(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect* re
     ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
     SDL_RenderPresent(renderer);
 
-    gb->ppu.reset();
+    gb.ppu.reset();
 }
 
 static void on_resize(SDL_Window* window, SDL_Rect* rect_lcd)
@@ -184,7 +174,7 @@ static void handle_keypress(const SDL_Keycode keycode, const bool pressed)
     {
         if (cur.k == keycode)
         {
-            gb->use_button(cur.b, pressed);
+            gb.use_button(cur.b, pressed);
             return;
         }
     }
@@ -194,7 +184,7 @@ int main(int argc, char* argv[])
 {
     bool running = true;
 
-    gb_init();
+    gb.mmu.load_boot_rom(BOOT_ROM_PATH);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
     {
@@ -245,8 +235,8 @@ int main(int argc, char* argv[])
                 running = false;
                 break;
             case SDL_DROPFILE:
-                gb_reset();
-                gb->mmu.load_game_rom(e.drop.file);
+                gb.reset();
+                gb.mmu.load_game_rom(e.drop.file);
                 SDL_free(e.drop.file);
                 break;
             case SDL_WINDOWEVENT:

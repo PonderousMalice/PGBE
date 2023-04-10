@@ -33,7 +33,8 @@ namespace PGBE
         m_ram_size(0),
         m_rom_size(0),
         m_ram_bank_nb(0),
-        m_rom_bank_nb(1)
+        m_rom_bank_nb(1),
+        boot_rom_enabled(true)
     {
         m_boot_rom->fill(0x00);
         vram->fill(0);
@@ -46,6 +47,41 @@ namespace PGBE
         timer = nullptr;
 
         p_input.fill(false);
+    }
+
+    void MMU::reset()
+    {
+        // To complete
+        std::fill(m_ext_ram.begin(), m_ext_ram.end(), 0);
+        vram->fill(0);
+        wram->fill(0);
+        oam->fill(0);
+        io_reg->fill(0);
+        hram->fill(0);
+        ie_reg = 0xE0;
+        internal_div = 0;
+        m_dma_bus_conflict = false;
+        m_select_action = false;
+        m_select_direction = false;
+
+        m_has_ram = false;
+        m_has_battery_buffered_ram = false;
+        m_has_real_time_clock = false;
+        m_has_rumble = false;
+        m_has_accelerometer = false;
+        m_ext_ram_enabled = false;
+        m_mbc_type = None;
+        m_mode_flag = false;
+        m_ram_size = 0;
+        m_rom_size = 0;
+        m_ram_bank_nb = 0;
+        m_rom_bank_nb = 1;
+
+        io_reg->at(P1_JOYP) = 0xFF;
+        p_input.fill(false);
+
+        m_rom_gb.clear();
+        boot_rom_enabled = true;
     }
 
     u8 MMU::read(u16 adr)
@@ -243,9 +279,9 @@ namespace PGBE
                 timer->schedule_task(4, std::bind(&MMU::oam_dma_transfer, this, v));
                 break;
             case BANK:
-                if (m_boot_rom_enabled() && v == 1)
+                if (v == 1)
                 {
-                    m_boot_rom = nullptr;
+                    boot_rom_enabled = false;
                 }
                 break;
             case LYC:
@@ -259,7 +295,7 @@ namespace PGBE
     {
         if (0x0000 <= gb_adr && gb_adr <= 0x3FFF)
         {
-            if (gb_adr < 0x0100 && m_boot_rom_enabled())
+            if (gb_adr < 0x0100 && boot_rom_enabled)
             {
                 return m_boot_rom->data() + gb_adr;
             }
@@ -578,10 +614,5 @@ namespace PGBE
             (gb_adr < 0x8000) // ROM 
             || (0x8000 <= gb_adr && gb_adr <= 0x9FFF && (m_STAT.ppu_mode > 2)) // VRAM
             || (0xFE00 <= gb_adr && gb_adr <= 0xFE9F && (m_STAT.ppu_mode > 1)); // OAM
-    }
-
-    bool MMU::m_boot_rom_enabled()
-    {
-        return (m_boot_rom != nullptr);
     }
 }

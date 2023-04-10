@@ -96,4 +96,13 @@ namespace PGBE
         set_bit(m_IF, 2);
         m_tima = m_tma;
     }
+
+    void Timer::reset()
+    {
+        // m_div = 0;
+        // m_internal_div = 0;
+        // m_prev_and_res = false;
+        // m_prev_tima = 0;
+        m_timers.clear();
+    }
 }

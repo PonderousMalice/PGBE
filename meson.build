@@ -17,6 +17,9 @@ project_src = [
     'src/Timer.cpp',
 ]
 
+# if sys.OS() is 'Windows':
+#     default_options
+
 sdl2_dep = dependency('sdl2')
 dear_imgui_dep = dependency('imgui')
 fmt_dep = dependency('fmt')

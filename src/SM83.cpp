@@ -50,6 +50,14 @@ namespace PGBE
         m_prev_op = instr;
     }
 
+    void SM83::reset()
+    {
+        m_registers.reset();
+        m_ime = false;
+        m_halted = false;
+        m_halt_bug = false;
+    }
+
     OP SM83::m_decode(u8 opcode)
     {
         u8 x = (opcode & 0xC0) >> 6,

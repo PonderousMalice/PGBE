@@ -19,6 +19,7 @@ namespace PGBE
         
         void schedule_task(int delay, std::function<void()> callback);
         void advance_cycle();
+        void reset();
     private:
         void m_update_clock();
         void m_check_timers();

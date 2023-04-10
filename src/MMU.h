@@ -95,6 +95,8 @@ namespace PGBE
         u8* get_host_adr(u16 gb_adr);
         bool is_locked(u16 gb_adr);
 
+        void reset();
+
         void oam_dma_transfer(u8 src);
 
         void load_boot_rom(std::string_view path);
@@ -110,6 +112,8 @@ namespace PGBE
         Timer* timer;
 
         std::array<bool, 8> p_input;
+
+        bool boot_rom_enabled;
     private:
         std::unique_ptr<std::array<u8, 0x0100>> m_boot_rom;
         std::vector<u8> m_rom_gb;
@@ -151,8 +155,6 @@ namespace PGBE
         bool m_has_accelerometer;
 
         bool m_ext_ram_enabled;
-
-        bool m_boot_rom_enabled();
 
         STAT_REG& m_STAT;
     };

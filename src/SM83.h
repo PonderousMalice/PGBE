@@ -92,6 +92,7 @@ namespace PGBE
         SM83(MMU* mmu, Timer* t);
 
         void run();
+        void reset();
         std::string dump();
         std::string print_dis(OP op);
     private:
@@ -100,6 +101,11 @@ namespace PGBE
         struct registers
         {
             registers()
+            {
+                AF = BC = DE = HL = SP = PC = 0;
+            }
+            
+            void reset()
             {
                 AF = BC = DE = HL = SP = PC = 0;
             }

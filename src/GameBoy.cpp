@@ -20,6 +20,14 @@ namespace PGBE
     {
     }
 
+    void GameBoy::reset()
+    {
+        cpu.reset();
+        mmu.reset();
+        ppu.reset();
+        timer.reset();
+    }
+
     void GameBoy::use_button(const GB_BUTTON b, const bool pressed)
     {
         if (pressed)
@@ -28,7 +36,7 @@ namespace PGBE
 
             set_bit(r_IF, 4);
         }
-
+        
         mmu.p_input.at(b) = pressed;
     }
 }

@@ -44,6 +44,7 @@ namespace PGBE
         GameBoy();
         ~GameBoy();
 
+        void reset();
         void use_button(const GB_BUTTON b, const bool pressed);
     };
 }
